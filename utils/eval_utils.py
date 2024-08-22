@@ -8,49 +8,93 @@ from omegaconf import DictConfig, OmegaConf
 import open3d as o3d
 import open_clip
 import plyfile
-from scipy.spatial import cKDTree
+from scipy.spatial import cKDTree, KDTree
 from segment_anything import sam_model_registry, SamAutomaticMaskGenerator, SamPredictor
 from sklearn.metrics import confusion_matrix
 from sklearn.neighbors import BallTree
 import torch
 from utils.clip_utils import get_text_feats
+import random
 
-def load_feature_map(path, normalize=True):
+
+def load_caption_map(pcd_path, anno_path):
+
+    pcd = o3d.io.read_point_cloud(pcd_path)
+    points = np.asarray(pcd.points)
+
+    with open(anno_path, "r") as f:
+        json_data = json.load(f)
+
+    labels = [-1] * len(points)
+
+    for group in json_data['segGroups']:
+        label = group['objectId']
+        for segment in group['segments']:
+            if segment < len(labels):
+                labels[segment] = label
+    
+    unique_labels = list(set(labels))
+    colors = np.zeros((len(points), 3))
+    label_to_color = {label: [random.random(), random.random(), random.random()] for label in unique_labels}
+
+    for i in range(len(points)):
+        colors[i] = label_to_color[labels[i]]
+
+    # Set the colors to the point cloud
+    pcd.colors = o3d.utility.Vector3dVector(colors)
+
+    return pcd, labels
+
+def load_feature_map(pcd_path, feat_path, json_file_path, normalize=True):
     """
     Load features map from disk, mask_feats.pt and objects/pcd_i.ply
     :param path: path to feature map
     :param normalize: whether to normalize features
     :return: mask_pcds, mask_feats
     """
-    if not os.path.exists(path):
-        raise FileNotFoundError("Feature map not found in {}".format(path))
+    if not os.path.exists(feat_path):
+        raise FileNotFoundError("Feature map not found in {}".format(feat_path))
+    
     # load mask_feats
-    mask_feats = torch.load(os.path.join(path, "mask_feats.pt")).float()
-    if normalize:
-        mask_feats = torch.nn.functional.normalize(mask_feats, p=2, dim=-1).cpu().numpy()
-    else:
-        mask_feats = mask_feats.cpu().numpy()
-    print("full pcd feats loaded from disk with shape {}".format(mask_feats.shape))
-    # load masked pcds
-    if os.path.exists(os.path.join(path, "objects")):
-        mask_pcds = []
-        number_of_pcds = len(os.listdir(os.path.join(path, "objects")))
-        not_found = []
-        for i in range(number_of_pcds):
-            if os.path.exists(os.path.join(path, "objects", "pcd_{}.ply".format(i))):
-                mask_pcds.append(
-                    o3d.io.read_point_cloud(os.path.join(path, "objects", "pcd_{}.ply".format(i)))
-                )
-            else:
-                print("masked pcd {} not found in {}".format(i, path))
-                not_found.append(i)
-        print("number of masked pcds loaded from disk {}".format(len(mask_pcds)))
-        # remove masks_feats that are not found
-        mask_feats = np.delete(mask_feats, not_found, axis=0)
-        print("number of mask_feats loaded from disk {}".format(len(mask_feats)))
-        return mask_pcds, mask_feats
-    else:
-        raise FileNotFoundError("objects directory not found in {}".format(path))
+    feats = np.load(feat_path)
+
+    file_ext = os.path.splitext(feat_path)[1]
+    
+    if file_ext == '.npz':
+        feats = feats['arr_0']
+    
+    print(np.shape(feats))
+
+    # load segment info
+    with open(json_file_path, "r") as f:
+        json_data = json.load(f)
+
+    # load pcd
+    pcd = o3d.io.read_point_cloud(pcd_path)
+    points = np.asarray(pcd.points)
+    
+    mask_feats = np.full((len(points), 1024), -1, dtype=np.float32)
+
+    for group in json_data['segGroups']:
+        objectId = group['objectId']
+        feat = feats[objectId]
+        for segment in group['segments']:
+            if segment < len(mask_feats):
+                mask_feats[segment] = feat
+   
+    filtered_mask_feats = []
+    filtered_points = []
+    for feat, point in zip(mask_feats, points):
+        if not np.all(feat==-1):
+            filtered_mask_feats.append(feat)
+            filtered_points.append(point)
+
+    filtered_mask_feats = np.array(filtered_mask_feats)
+    filtered_points = np.array(filtered_points)
+
+    pcd.points = o3d.utility.Vector3dVector(filtered_points)
+
+    return pcd, filtered_mask_feats
     
 def read_gt_classes_replica(gt_labels_path):
     """
@@ -67,29 +111,6 @@ def read_gt_classes_replica(gt_labels_path):
 
     return class_id_names
 
-def create_color_map(class_id_names):
-    """
-    Create color map for ground truth classes
-    :param semantic_info_path: path to semantic info JSON file
-    :return color map
-    """
-
-
-
-    # with open(semantic_info_path) as f:
-    #     semantic_info = json.load(f)
-    
-    # class_id_names = {obj["id"]: obj["name"] for obj in semantic_info["classes"]}
-    # unique_class_ids = np.unique(list(class_id_names.keys()))
-    unique_colors = np.random.rand(len(class_id_names), 3)
-    class_id_colors = {i: unique_colors[i] for i, class_id in enumerate(class_id_names)}
-    # convert to string
-    class_id_colors = {int(k): v.tolist() for k, v in class_id_colors.items()}
-    with open("class_id_colors.json", "w") as f:
-            json.dump(class_id_colors, f)
-    return class_id_colors
-
-
 def text_prompt(clip_model, clip_feat_dim, mask_feats, text):
     """
     Compute similarity between text and mask_feats
@@ -102,10 +123,16 @@ def text_prompt(clip_model, clip_feat_dim, mask_feats, text):
     """
    
     text_feats = get_text_feats(text, clip_model, clip_feat_dim)
-    similarity = torch.nn.functional.cosine_similarity(
-        torch.from_numpy(mask_feats).unsqueeze(1), torch.from_numpy(text_feats).unsqueeze(0), dim=2
-    )
-    similarity = similarity.cpu().numpy()
+    text_features_tensor = torch.from_numpy(text_feats).unsqueeze(0)
+    num_mask_feats = mask_feats.shape[0]
+    similarity = np.zeros((num_mask_feats, text_feats.shape[0]))
+    batch_size = 500
+    for i in range(0, num_mask_feats, batch_size):
+        mask_batch = torch.from_numpy(mask_feats[i:i+batch_size]).unsqueeze(1)
+        batch_similarity = torch.nn.functional.cosine_similarity(
+            mask_batch, text_features_tensor, dim=2
+        )
+        similarity[i:i+batch_size, :] = batch_similarity.cpu().numpy()
     return similarity
 
 def sim_2_label(similarity, input_labels):
@@ -117,7 +144,6 @@ def sim_2_label(similarity, input_labels):
     """
     # find the label index with the highest similarity
     label_indices = similarity.argmax(axis=1)
-    print("label_indices: ", label_indices)
     # convert label indices to label names
     # labels = np.array([input_labels[i] for i in label_indices])
     labels = np.array(label_indices)
@@ -195,33 +221,3 @@ def read_ply_and_assign_colors_replica(file_path, semantic_info_path):
     pcd_instance.colors = o3d.utility.Vector3dVector(instance_colors)
     return pcd, class_ids, pcd_instance, object_ids1
 
-def knn_interpolation(cumulated_pc: np.ndarray, full_sized_data: np.ndarray, k):
-    """
-    Using k-nn interpolation to find labels of points of the full sized pointcloud
-    :param cumulated_pc: cumulated pointcloud results after running the network
-    :param full_sized_data: full sized point cloud
-    :param k: k for k nearest neighbor interpolation
-    :return: pointcloud with predicted labels in last column and ground truth labels in last but one column
-    """
-
-    labeled = cumulated_pc[cumulated_pc[:, -1] != -1]
-    to_be_predicted = full_sized_data.copy()
-
-    ball_tree = BallTree(labeled[:, :3], metric="minkowski")
-
-    knn_classes = labeled[ball_tree.query(to_be_predicted[:, :3], k=k)[1]][:, :, -1].astype(int)
-    print("knn_classes: ", knn_classes.shape)
-
-    interpolated = np.zeros(knn_classes.shape[0])
-
-    for i in range(knn_classes.shape[0]):
-        interpolated[i] = np.bincount(knn_classes[i]).argmax()
-
-    output = np.zeros((to_be_predicted.shape[0], to_be_predicted.shape[1] + 1))
-    output[:, :-1] = to_be_predicted
-
-    output[:, -1] = interpolated
-
-    assert output.shape[0] == full_sized_data.shape[0]
-
-    return output
