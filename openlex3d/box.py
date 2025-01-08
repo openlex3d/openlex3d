@@ -1,4 +1,7 @@
-"""General 3D Bounding Box class."""
+"""General 3D Bounding Box class.
+
+Taken from Objectron: https://github.com/google-research-datasets/Objectron/blob/master/objectron/dataset/box.py
+"""
 
 import numpy as np
 from numpy.linalg import lstsq as optimizer

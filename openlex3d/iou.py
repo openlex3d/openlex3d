@@ -1,4 +1,10 @@
-"""The Intersection Over Union (IoU) for 3D oriented bounding boxes."""
+"""The Intersection Over Union (IoU) for 3D oriented bounding boxes.
+
+Taken from Objectron: https://github.com/google-research-datasets/Objectron/blob/master/objectron/dataset/iou.py
+
+"""
+
+
 
 import numpy as np
 import scipy.spatial as sp
