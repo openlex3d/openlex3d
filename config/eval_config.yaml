@@ -1,10 +1,10 @@
 main:
   device: cuda
   dataset: replica 
-  scene_name: room_0
+  scene_name: office4
   caption_eval: false
-  pred_path: predictions/room_0/02-02-24--00-01-49__room0
-  replica_dataset_gt_path: data/Replica-Full
+  pred_path: predictions/scannetpp/scannetpp_c0f5742640_cg-detector_2024-10-22-15-54-59
+  dataset_gt_path: data/Replica-Full
 models:
   clip:
     type:  ViT-H-14 # ViT-L/14@336px # ViT-H-14

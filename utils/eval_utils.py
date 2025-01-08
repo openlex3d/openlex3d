@@ -168,9 +168,9 @@ def read_ply_and_assign_colors_replica(file_path, semantic_info_path):
     object_class_mapping = {
         obj["id"]: {
             "class_id": obj["class_id"],
-            "synonyms": obj["synonyms"],
-            "vis_sim": obj["vis_sim"],
-            "related": obj["related"]
+            # "synonyms": obj["synonyms"],
+            # "vis_sim": obj["vis_sim"],
+            # "related": obj["related"]
         }
         for obj in semantic_info["objects"]
     }

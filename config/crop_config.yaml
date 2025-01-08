@@ -1,0 +1,6 @@
+main:
+  device: cuda
+  dataset: replica 
+  scene_name: office1
+  replica_dataset_gt_path: /media/christina/T7 Shield1/data/Replica-Full
+  replica_dataset_traj_path: /media/christina/T7 Shield1/data/Replica/Replica

@@ -26,19 +26,20 @@ def map_pred_to_gt(eval_segm, gt_segm, labels, object_class_mapping, mappings, t
 
         gt_id = int(gt_point[3])
         
-        if gt_id == 0: # don't count any unlabelled objects
+        # print(gt_id)
+        if gt_id == 0 or gt_id == -100: # don't count any unlabelled objects
             mapping_labels.append("none")
             continue
-        
+
         gt_class_info = object_class_mapping.get(gt_id)
-        if len(gt_class_info["synonyms"]) == 0:
+        if gt_id not in object_class_mapping or len(gt_class_info["synonyms"]) == 0:
             mapping_labels.append("none")
             continue
         
-        cl = gt_class_info["class_name"]
-        if cl in ["wall", "floor", "ceiling", "window", "door", "rug", "undefined", "switch", "pillar", "wall-plug"]:
-            mapping_labels.append("none")
-            continue
+        # cl = gt_class_info["class_name"]
+        # if cl in ["wall", "floor", "ceiling", "window", "door", "rug", "undefined", "switch", "pillar", "wall-plug"]:
+        #     mapping_labels.append("none")
+        #     continue
 
         if distance[0] > 0.05:
             mapping_labels.append("missing")
@@ -67,7 +68,7 @@ def map_pred_to_gt(eval_segm, gt_segm, labels, object_class_mapping, mappings, t
             
     return ious, accs, mapping_labels
 
-def IOU(eval_segm, gt_segm, labels, semantic_info_path, mappings=["synonyms", "vis_sim", "related", "incorrect", "missing"], typ=[]):
+def IOU(eval_segm, gt_segm, labels, semantic_info, dataset, mappings=["synonyms", "vis_sim", "related", "incorrect", "missing"], typ=[]):
     """
     Calculate mean Intersection over Union (IoU) for each mapping type.
     
@@ -79,21 +80,27 @@ def IOU(eval_segm, gt_segm, labels, semantic_info_path, mappings=["synonyms", "v
     :param ignore: list of classes to ignore
     :return: list of IoU values for each mapping
     """
-    # Read ground truth semantic info
-    with open(semantic_info_path) as f:
-        semantic_info = json.load(f)
 
-    object_class_mapping = {
-        obj["id"]: {
-            "class_id": obj["class_id"],
-            "class_name": obj["class_name"],
-            "synonyms": obj["synonyms"],
-            "vis_sim": obj["vis_sim"],
-            "related": obj["related"]
+    if dataset == "replica":
+        # Read ground truth semantic info
+        with open(semantic_info) as f:
+            semantic_info = json.load(f)
+
+        object_class_mapping = {
+            obj["id"]: {
+                "class_id": obj["class_id"],
+                "class_name": obj["class_name"],
+                "synonyms": obj["synonyms"],
+                "vis_sim": obj["vis_sim"],
+                "related": obj["related"]
+            }
+            for obj in semantic_info.get("objects", [])
         }
-        for obj in semantic_info.get("objects", [])
-    }
-    ious, accs, mapping_labels = map_pred_to_gt(eval_segm, gt_segm, labels, object_class_mapping, mappings, typ)
+        ious, accs, mapping_labels = map_pred_to_gt(eval_segm, gt_segm, labels, object_class_mapping, mappings, typ)
+    
+    elif dataset == "scannetpp":
+        object_class_mapping = semantic_info
+        ious, accs, mapping_labels = map_pred_to_gt(eval_segm, gt_segm, labels, object_class_mapping, mappings, typ)
     
     return ious, accs, mapping_labels
 

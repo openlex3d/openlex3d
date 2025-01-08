@@ -1,0 +1,6 @@
+main:
+  dataset: replica 
+  scene_name: office0
+  json_path: /home/christina/openlex3d_labels/replica/office0/replica_office0_merged.json
+  updated_json_path: /home/christina/openlex3d_labels/replica/office0/replica_office0_bg.json
+  dataset_gt_path: /media/christina/T7 Shield1/data/Replica-Full
