@@ -18,6 +18,7 @@ args = parser.parse_args()
 exp_dir = Path(args.path).resolve()
 scene_name = args.scene_name
 
+
 def read_semantic_classes_replica(semantic_info_path, crete_color_map=False):
     with open(semantic_info_path) as f:
         semantic_info = json.load(f)
@@ -25,7 +26,9 @@ def read_semantic_classes_replica(semantic_info_path, crete_color_map=False):
     if crete_color_map:
         unique_class_ids = np.unique(list(class_id_names.keys()))
         unique_colors = np.random.rand(len(unique_class_ids), 3)
-        class_id_colors = {class_id: unique_colors[i] for i, class_id in enumerate(unique_class_ids)}
+        class_id_colors = {
+            class_id: unique_colors[i] for i, class_id in enumerate(unique_class_ids)
+        }
         # convert to string
         class_id_colors = {str(k): v.tolist() for k, v in class_id_colors.items()}
         # save class_id_colors to json file to use later
@@ -59,7 +62,9 @@ def get_text_feats(in_text, clip_model, clip_feat_dim, batch_size=64):
     return text_feats
 
 
-def get_text_feats_multiple_templates(in_text, clip_model, clip_feat_dim, batch_size=64):
+def get_text_feats_multiple_templates(
+    in_text, clip_model, clip_feat_dim, batch_size=64
+):
     """
     Get the text features from the CLIP model with text templates
     :param in_text (list): the text to get the features from
@@ -81,8 +86,8 @@ def get_text_feats_multiple_templates(in_text, clip_model, clip_feat_dim, batch_
     text_feats = np.mean(text_feats, axis=1)
     return text_feats
 
-if __name__ == '__main__':
 
+if __name__ == "__main__":
     clip_model, _, preprocess = open_clip.create_model_and_transforms(
         "ViT-H-14",
         pretrained="/home/buechner/ovsg-dataset/checkpoints/laion2b_s32b_b79k.bin",
@@ -92,8 +97,14 @@ if __name__ == '__main__':
     clip_model.eval()
 
     # Load the mask_feats.pt
-    mask_feats_unnormalized = torch.load(os.path.join(exp_dir, "mask_feats.pt")).float().cuda()
-    mask_feats = torch.nn.functional.normalize(mask_feats_unnormalized, p=2, dim=-1).cpu().numpy()
+    mask_feats_unnormalized = (
+        torch.load(os.path.join(exp_dir, "mask_feats.pt")).float().cuda()
+    )
+    mask_feats = (
+        torch.nn.functional.normalize(mask_feats_unnormalized, p=2, dim=-1)
+        .cpu()
+        .numpy()
+    )
 
     # save as npz
     np.savez(os.path.join(exp_dir, "clip_features.npz"), mask_feats)
@@ -106,14 +117,18 @@ if __name__ == '__main__':
     masked_pcd.colors = o3d.utility.Vector3dVector(np.asarray(masked_pcd.colors) * 0.1)
 
     masked_tree = scipy.spatial.cKDTree(np.asarray(masked_pcd.points))
-    
+
     with open("HOVSG_maps/class_id_colors.json", "r") as f:
         colors_map = json.load(f)
         colors_map = {int(k): v for k, v in colors_map.items()}
-        color2id = {tuple(v): k for k, v in colors_map.items()}    
+        color2id = {tuple(v): k for k, v in colors_map.items()}
 
-    semantic_info_path = os.path.join("/data/replica_v1/", scene_name, "habitat/info_semantic.json")
-    class_id_name = read_semantic_classes_replica(semantic_info_path, crete_color_map=True)
+    semantic_info_path = os.path.join(
+        "/data/replica_v1/", scene_name, "habitat/info_semantic.json"
+    )
+    class_id_name = read_semantic_classes_replica(
+        semantic_info_path, crete_color_map=True
+    )
     # add background class with id len(class_id_name)+1
     class_id_name[0] = "background"
     labels = list(class_id_name.values())
@@ -121,7 +136,9 @@ if __name__ == '__main__':
 
     text_feats = get_text_feats_multiple_templates(labels, clip_model, clip_feat_dim)
     similarity = torch.nn.functional.cosine_similarity(
-        torch.from_numpy(mask_feats).unsqueeze(1), torch.from_numpy(text_feats).unsqueeze(0), dim=2
+        torch.from_numpy(mask_feats).unsqueeze(1),
+        torch.from_numpy(text_feats).unsqueeze(0),
+        dim=2,
     )
     sim = similarity.cpu().numpy()
 
@@ -131,16 +148,30 @@ if __name__ == '__main__':
     text_labels = np.array([labels[i] for i in label_indices])
 
     object_pcd_paths = glob.glob(os.path.join(exp_dir, "objects/*.ply"))
-    object_pcd_idcs = sorted(enumerate([int(path.split("_")[-1].split(".")[0]) for path in object_pcd_paths]), key=lambda i: i[1])
+    object_pcd_idcs = sorted(
+        enumerate(
+            [int(path.split("_")[-1].split(".")[0]) for path in object_pcd_paths]
+        ),
+        key=lambda i: i[1],
+    )
     object_pcd_paths_sorted = [object_pcd_paths[tuple[0]] for tuple in object_pcd_idcs]
     for obj_idx, object_pcd_path in enumerate(object_pcd_paths_sorted):
         object_pcd = o3d.io.read_point_cloud(object_pcd_path)
-        closest_points = masked_tree.query(np.asarray(np.asarray(object_pcd.points)), k=1, distance_upper_bound=0.01, p=2)
-        segments_anno["segGroups"].append({"id": obj_idx, "objectId": obj_idx, "label": text_labels[obj_idx], "segments": closest_points[1].tolist()})
+        closest_points = masked_tree.query(
+            np.asarray(np.asarray(object_pcd.points)),
+            k=1,
+            distance_upper_bound=0.01,
+            p=2,
+        )
+        segments_anno["segGroups"].append(
+            {
+                "id": obj_idx,
+                "objectId": obj_idx,
+                "label": text_labels[obj_idx],
+                "segments": closest_points[1].tolist(),
+            }
+        )
 
     # write out the segments_anno.json
     with open(os.path.join(exp_dir, "segments_anno.json"), "w") as f:
         json.dump(segments_anno, f)
-
-     
-
