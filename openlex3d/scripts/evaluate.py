@@ -9,6 +9,8 @@ import numpy as np
 from omegaconf import DictConfig
 import open3d as o3d
 import open_clip
+import torch
+import json
 
 # from segment_anything import sam_model_registry, SamAutomaticMaskGenerator, SamPredictor
 from sklearn.neighbors import BallTree, NearestNeighbors
@@ -43,22 +45,25 @@ def main(params: DictConfig):
         )
         scene_name = params.main.scene_name
         semantic_info_path = os.path.join(
-            params.main.replica_dataset_gt_path,
-            scene_name,
-            "habitat",
-            "info_semantic_extended.json",
+            params.main.dataset_gt_path, scene_name, "habitat", "info_semantic.json"
         )
         ply_path = os.path.join(
-            params.main.replica_dataset_gt_path,
-            scene_name,
-            "habitat",
-            "mesh_semantic.ply",
+            params.main.dataset_gt_path, scene_name, "habitat", "mesh_semantic.ply"
         )
         gt_pcd, gt_labels, _, _ = read_ply_and_assign_colors_replica(
             ply_path, semantic_info_path
         )
+        unique_labels = np.unique(gt_labels)
+
+        # Create directory to save PCD files if it doesn't exist
+        output_dir = os.path.join(
+            params.main.dataset_gt_path, scene_name, "habitat", "separated_pcd"
+        )
+        os.makedirs(output_dir, exist_ok=True)
+
         # o3d.io.write_point_cloud("/home/christina/git/ov_dataset_eval/org_gt_pcd.pcd", gt_pcd)
 
+        # NEEDS ADJUSTING - there will be a visible point cloud for each scene, we should just assign the labels and save the visible pcd and labels as the new ground truth in advance
         vis_pcd_path = "/home/christina/git/ov_dataset_eval/data/Replica-Full/room_0/habitat/visible_gt_pcd.pcd"
         vis_gt_pcd = o3d.io.read_point_cloud(vis_pcd_path)
         gt_points = np.asarray(gt_pcd.points)
@@ -79,6 +84,74 @@ def main(params: DictConfig):
         vis_gt_pcd.colors = o3d.utility.Vector3dVector(point_colors[:, :3])
         gt_pcd = vis_gt_pcd
         gt_labels = assigned_labels
+    elif params.main.dataset == "scannetpp":
+        print(
+            f"Loading Ground Truth PCD: {params.main.dataset} {params.main.scene_name}"
+        )
+        scene_name = params.main.scene_name
+
+        # instance_label_map NEEDS TO BE CHANGED TO SEGMENTS AI FORMAT
+
+        gt_mesh_path = os.path.join(
+            params.main.dataset_gt_path, scene_name, scene_name + ".pth"
+        )
+        data = torch.load(gt_mesh_path)
+
+        # create ground truth pcd
+        coords = data["sampled_coords"]
+        colors = data["sampled_colors"]
+
+        gt_pcd = o3d.geometry.PointCloud()
+        gt_pcd.points = o3d.utility.Vector3dVector(coords)
+        gt_pcd.colors = o3d.utility.Vector3dVector(colors)
+
+        # o3d.visualization.draw_geometries([gt_pcd])
+
+        # get ground truth labels
+        gt_labels = data["sampled_instance_anno_id"]
+
+        # get extended label set
+        extended_label_path = os.path.join(
+            params.main.dataset_gt_path, scene_name, "output.manifest"
+        )
+        object_class_mapping = {}
+
+        # this is a placeholder until we get all the words from all scenes
+        unique_labels = set()
+
+        with open(extended_label_path, "r") as file:
+            for line in file:
+                record = json.loads(line.strip())
+                source_ref = record.get("source-ref", "")
+                source_ref = record.get("source-ref", "")
+                image_id_str = source_ref.split("/")[-1].split(".")[
+                    0
+                ]  # Extract "00001" from the path
+                image_id = int(image_id_str)  # Convert to int to remove leading zeros
+
+                annotation_data = record.get("scannetpp-test-final", {}).get(
+                    "annotationsFromAllWorkers", [{}]
+                )[0]
+                # metadata = record.get("scannetpp-test-final-metadata", {})
+
+                annotation_content = annotation_data.get("annotationData", {}).get(
+                    "content", "{}"
+                )
+                content = json.loads(annotation_content)
+
+                related_words = content.get("related_words", "").split(", ")
+                synonyms = content.get("synonyms", "").split(", ")
+                visually_similar = content.get("visually_similar", "").split(", ")
+
+                object_class_mapping[image_id] = {
+                    "synonyms": synonyms,
+                    "vis_sim": visually_similar,
+                    "related": related_words,
+                }
+
+                unique_labels.update(related_words)
+                unique_labels.update(synonyms)
+                unique_labels.update(visually_similar)
 
     if params.main.caption_eval:
         print("Running Caption Evaluation")
@@ -197,7 +270,7 @@ def main(params: DictConfig):
             clip_feat_dim = 1024
         clip_model.eval()
 
-        pred_path = params.main.pred_path  # Assuming params is defined elsewhere
+        pred_path = params.main.pred_path
         for file_name in os.listdir(pred_path):
             if file_name.endswith((".npy", ".npz")):
                 feat_path = os.path.join(pred_path, file_name)
@@ -219,19 +292,28 @@ def main(params: DictConfig):
         downsampled_feats = pred_feats[indices[:, 0]]
 
         # Get predicted labels
-        gt_labels_path = os.path.join(
-            params.main.replica_dataset_gt_path,
-            scene_name,
-            "habitat",
-            "unique_labels.txt",
-        )
-        class_id_names = read_gt_classes_replica(gt_labels_path)
-        labels = list(class_id_names)
+        if params.main.dataset == "replica":
+            gt_labels_path = os.path.join(
+                params.main.dataset_gt_path, scene_name, "habitat", "unique_labels.txt"
+            )
+            class_id_names = read_gt_classes_replica(gt_labels_path)
+            labels = list(class_id_names)
+        elif params.main.dataset == "scannetpp":
+            unique_labels.discard("dd")
+            unique_labels.discard("df")
+            unique_labels.discard("")
+
+            labels = list(sorted(unique_labels))
+
+            with open("labels.txt", "w") as file:
+                for label in labels:
+                    file.write(f"{label}\n")
+
         sim = text_prompt(clip_model, clip_feat_dim, downsampled_feats, labels)
         predicted_labels = sim_2_label(sim, labels)
         predicted_labels = np.array(predicted_labels).reshape(-1, 1)
 
-        # points = np.asarray(downsampled_pcd.points)
+        points = np.asarray(downsampled_pcd.points)
 
         # scatter = go.Scatter3d(
         # x=points[:, 0],
@@ -277,9 +359,26 @@ def main(params: DictConfig):
 
         typ = "feature"
         print("################ {} ################".format(scene_name))
-        ious, accs, mapping_labels = IOU(
-            coords_pred, coords_gt, labels, semantic_info_path, typ=typ
-        )
+
+        if params.main.dataset == "replica":
+            ious, accs, mapping_labels = IOU(
+                coords_pred,
+                coords_gt,
+                labels,
+                semantic_info_path,
+                dataset=params.main.dataset,
+                typ=typ,
+            )
+        elif params.main.dataset == "scannetpp":
+            ious, accs, mapping_labels = IOU(
+                coords_pred,
+                coords_gt,
+                labels,
+                object_class_mapping,
+                dataset=params.main.dataset,
+                typ=typ,
+            )
+
         print(ious)
         print(accs)
 
@@ -308,7 +407,7 @@ def main(params: DictConfig):
         assert pcd.has_colors(), "The point cloud has no colors."
 
         # Save as PCD file
-        pcd_filename = "output_point_cloud_with_labels_cg_1.pcd"
+        pcd_filename = "output_point_cloud_cg_scannetpp.pcd"
         o3d.io.write_point_cloud(pcd_filename, pcd)
 
         print(f"PCD file saved: {pcd_filename}")
