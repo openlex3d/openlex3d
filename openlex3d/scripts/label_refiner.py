@@ -4,34 +4,53 @@ import os
 import numpy as np
 import re
 
+
 def merge_json_files(json_files):
-    image_data = defaultdict(lambda: {
-        "name": "",
-        "synonyms": set(),
-        "visually_similar": set(),
-        "related": set(),
-    })
+    image_data = defaultdict(
+        lambda: {
+            "name": "",
+            "synonyms": set(),
+            "visually_similar": set(),
+            "related": set(),
+        }
+    )
 
     for file in json_files:
-        with open(file, 'r') as f:
+        with open(file, "r") as f:
             data = json.load(f)
             for sample in data.get("dataset", {}).get("samples", []):
                 name = sample.get("name")
                 print(sample)
-                labels = sample.get("labels", {}).get("ground-truth", {}).get("attributes", {})
+                labels = (
+                    sample.get("labels", {})
+                    .get("ground-truth", {})
+                    .get("attributes", {})
+                )
                 image_attributes = labels.get("image_attributes", {})
 
                 if "Synonyms" in image_attributes:
                     synonyms = image_attributes["Synonyms"].split(",")
-                    image_data[name]["synonyms"].update(label.strip().lower() for label in synonyms if label.strip())
+                    image_data[name]["synonyms"].update(
+                        label.strip().lower() for label in synonyms if label.strip()
+                    )
 
                 if "Visually Similar Categories" in image_attributes:
-                    visually_similar = image_attributes["Visually Similar Categories"].split(",")
-                    image_data[name]["visually_similar"].update(label.strip().lower() for label in visually_similar if label.strip())
+                    visually_similar = image_attributes[
+                        "Visually Similar Categories"
+                    ].split(",")
+                    image_data[name]["visually_similar"].update(
+                        label.strip().lower()
+                        for label in visually_similar
+                        if label.strip()
+                    )
 
                 if "Related / patterns on objects etc" in image_attributes:
-                    related = image_attributes["Related / patterns on objects etc"].split(",")
-                    image_data[name]["related"].update(label.strip().lower() for label in related if label.strip())
+                    related = image_attributes[
+                        "Related / patterns on objects etc"
+                    ].split(",")
+                    image_data[name]["related"].update(
+                        label.strip().lower() for label in related if label.strip()
+                    )
 
                 # Store the name for reference
                 image_data[name]["name"] = name
@@ -51,16 +70,16 @@ def merge_json_files(json_files):
             #     ]
             # },
             "samples": []
-        }
+        },
     }
 
     # Add merged samples to the dataset
     for name, labels in image_data.items():
-        match = re.search(r'\d+', name)
-        object_id = int(match.group()) if match else None 
+        match = re.search(r"\d+", name)
+        object_id = int(match.group()) if match else None
 
         sample = {
-            # "uuid": name,  
+            # "uuid": name,
             "name": labels["name"],
             "object_id": object_id,
             # "attributes": {
@@ -71,17 +90,17 @@ def merge_json_files(json_files):
                 # "ground-truth": {
                 # "label_status": "LABELED",
                 # "attributes": {
-                    # "format_version": "0.1",
-                    # "annotations": [],
-                    # "segmentation_bitmap": {"url": ""},
+                # "format_version": "0.1",
+                # "annotations": [],
+                # "segmentation_bitmap": {"url": ""},
                 "image_attributes": {
                     "synonyms": sorted(labels["synonyms"]),
                     "vis_sim": sorted(labels["visually_similar"]),
-                    "depictions": sorted(labels["related"])
+                    "depictions": sorted(labels["related"]),
                 }
                 # }
                 # }
-            }
+            },
         }
         merged_json["dataset"]["samples"].append(sample)
 
@@ -90,30 +109,37 @@ def merge_json_files(json_files):
             "synonyms_count": len(labels["synonyms"]),
             "visually_similar_count": len(labels["visually_similar"]),
             "related_count": len(labels["related"]),
-            "total_labels": len(labels["synonyms"]) + len(labels["visually_similar"]) + len(labels["related"])
+            "total_labels": len(labels["synonyms"])
+            + len(labels["visually_similar"])
+            + len(labels["related"]),
         }
         for name, labels in image_data.items()
     }
 
-    total_labels_per_object = [counts['total_labels'] for counts in labels_count_per_object.values()]
-    mean_labels = np.mean(total_labels_per_object)
+    total_labels_per_object = [
+        counts["total_labels"] for counts in labels_count_per_object.values()
+    ]
+    # mean_labels = np.mean(total_labels_per_object) # commenting because it was not used
     std_labels = np.std(total_labels_per_object)
     min_labels = np.min(total_labels_per_object)
     max_labels = np.max(total_labels_per_object)
 
-    std_labels = float(std_labels)  
-    min_labels = int(min_labels)   
-    max_labels = int(max_labels)  
+    std_labels = float(std_labels)
+    min_labels = int(min_labels)
+    max_labels = int(max_labels)
 
     # Output the statistics for analysis
-    total_unique_labels = len(set(
-        label for category in ["synonyms", "visually_similar", "related"] 
-        for labels in image_data.values() 
-        for label in labels[category]
-    ))
-    total_samples = len(merged_json["dataset"]["samples"])  
+    total_unique_labels = len(
+        set(
+            label
+            for category in ["synonyms", "visually_similar", "related"]
+            for labels in image_data.values()
+            for label in labels[category]
+        )
+    )
+    total_samples = len(merged_json["dataset"]["samples"])
     total_labels = sum(
-        counts['total_labels'] for counts in labels_count_per_object.values()
+        counts["total_labels"] for counts in labels_count_per_object.values()
     )
     average_labels_per_object = total_labels / total_samples if total_samples > 0 else 0
 
@@ -126,11 +152,14 @@ def merge_json_files(json_files):
     print(f"  Minimum Labels per Object: {min_labels}")
     print(f"  Maximum Labels per Object: {max_labels}")
 
-    all_labels = sorted(set(
-        label for category in ["synonyms", "visually_similar", "related"] 
-        for labels in image_data.values() 
-        for label in labels[category]
-    ))
+    all_labels = sorted(
+        set(
+            label
+            for category in ["synonyms", "visually_similar", "related"]
+            for labels in image_data.values()
+            for label in labels[category]
+        )
+    )
 
     summary = {
         "unique_labels": all_labels,
@@ -140,11 +169,12 @@ def merge_json_files(json_files):
             "average_labels_per_object": average_labels_per_object,
             "std_labels_per_object": std_labels,
             "min_labels_per_object": min_labels,
-            "max_labels_per_object": max_labels
-        }
+            "max_labels_per_object": max_labels,
+        },
     }
 
     return merged_json, summary
+
 
 def main():
     # Define the list of JSON files to merge
@@ -152,7 +182,7 @@ def main():
         "/home/christina/openlex3d_labels/hm3d/000877/hm3dsem-00877_fh-v0.1.json",
         "/home/christina/openlex3d_labels/hm3d/000877/hm3dsem-00877-maryam-v0.1.json",
         "/home/christina/openlex3d_labels/hm3d/000877/hm3dsem-00877-mb-ulli-v0.1.json",
-        "/home/christina/openlex3d_labels/hm3d/000877/hm3dsem-00877_mando-v0.1.json"
+        "/home/christina/openlex3d_labels/hm3d/000877/hm3dsem-00877_mando-v0.1.json",
     ]
 
     for file in json_files:
@@ -162,12 +192,17 @@ def main():
 
     merged_data, summary = merge_json_files(json_files)
 
-    with open("/home/christina/openlex3d_labels/hm3d/000877/hm3dsem_000877_merged.json", "w") as f:
+    with open(
+        "/home/christina/openlex3d_labels/hm3d/000877/hm3dsem_000877_merged.json", "w"
+    ) as f:
         json.dump(merged_data, f, indent=4)
 
-    with open("/home/christina/openlex3d_labels/hm3d/000877/hm3dsem_000877_merged_metadata.json", "w") as f:
+    with open(
+        "/home/christina/openlex3d_labels/hm3d/000877/hm3dsem_000877_merged_metadata.json",
+        "w",
+    ) as f:
         json.dump(summary, f, indent=4)
+
 
 if __name__ == "__main__":
     main()
-

@@ -1,16 +1,9 @@
-from argparse import ArgumentParser
-import os
-
-import cv2
-import matplotlib.pyplot as plt
 import numpy as np
 
 # import clip
 import open_clip
-from PIL import Image
-from sklearn.manifold import TSNE
 import torch
-from tqdm import tqdm
+
 
 def get_text_feats(in_text, clip_model, clip_feat_dim, batch_size=64):
     """

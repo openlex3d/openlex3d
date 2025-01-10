@@ -1,0 +1,63 @@
+[project]
+name = "openlex3d"
+version = "0.0.1"
+
+description = "The OpenLex3D Toolbox package"
+authors = [
+    { name="Christina Kassab", email="christina@robots.ox.ac.uk" },
+    { name="Sacha Morin",      email="sacha.morin@mila.quebec" },
+    { name="Martin Buechner",  email="buechner@cs.uni-freiburg.de" },
+    { name="Matias Mattamala", email="matias@robots.ox.ac.uk" },
+]
+license = { text="MIT"}
+readme = "README.md"
+
+classifiers = [
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+requires-python = ">=3.8.0"
+dependencies = [
+    "pre-commit",
+    "numpy",
+    "open3d",
+    "scipy",
+    "pytest",
+    "torch",
+    "argcomplete",
+    "hydra-core",
+    "opencv-python",
+    "open_clip_torch",
+    "torchmetrics",
+    "plyfile"
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["openlex3d"]
+
+
+[tool.ruff]
+line-length = 88
+respect-gitignore = false
+target-version = "py38"
+lint.ignore = [
+      "E402",  # Module level import not at top of file
+]
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+known-first-party = ["openlex3d"]
+split-on-trailing-comma = false
+
+[project.scripts]
+ol3_evaluate = "openlex3d.scripts.evaluate:main"
