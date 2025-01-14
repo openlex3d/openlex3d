@@ -6,7 +6,7 @@ dataset:
 
 evaluation:
   type: features
-  pred_path: predictions/scannetpp/scannetpp_c0f5742640_cg-detector_2024-10-22-15-54-59
+  predictions_path: predictions/scannetpp/scannetpp_c0f5742640_cg-detector_2024-10-22-15-54-59
 
 model:
   type: open_clip

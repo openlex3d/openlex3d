@@ -3,7 +3,6 @@ import os
 
 import numpy as np
 import open3d as o3d
-import plyfile
 
 import torch
 
@@ -11,11 +10,63 @@ import random
 from openlex3d.utils.clip_utils import get_text_feats
 
 
+import itertools
 from pathlib import Path
 
+SEGMENTS_ANNOTATION_FILE = "segments_anno.json"
+
+
 def load_predicted_features(predictions_path: str):
+    # Prepare paths
     pred_root = Path(predictions_path)
-    feat_path = pred_root.glob()
+    feat_path = list(
+        itertools.chain.from_iterable(
+            pred_root.glob(pattern) for pattern in ["*.npy", "*.npz"]
+        )
+    )[0]
+    assert feat_path.exists()
+
+    cloud_path = list(
+        itertools.chain.from_iterable(
+            pred_root.glob(pattern) for pattern in ["*.npy", "*.npz"]
+        )
+    )[0]
+    assert cloud_path.exists()
+
+    segment_annotation_path = pred_root / SEGMENTS_ANNOTATION_FILE
+    assert segment_annotation_path.exists()
+
+    # Load mask_feats
+    pred_feats = np.load(feat_path)
+    file_ext = os.path.splitext(feat_path)[1]
+    # TODO Note: this is hacky, why is it needed?
+    if file_ext == ".npz":
+        pred_feats = pred_feats["arr_0"]
+
+    # TODO: confirm this is correct
+    B, D = pred_feats.shape
+
+    # Load predicted cloud
+    pred_cloud = o3d.t.io.read_point_cloud(cloud_path)
+    points = np.asarray(pred_cloud.point.positions)
+    N = len(points)
+
+    # Load segment annotations
+    with open(segment_annotation_path, "r") as f:
+        segment_annotations = json.load(f)
+
+    # Prepare a mask to recover only valid points and features
+    mask = np.full((N), True, dtype=bool)
+    for group in segment_annotations["segGroups"]:
+        for segment in group["segments"]:
+            if segment < N:
+                mask[segment] = False
+
+    # Apply mask
+    pred_cloud.point.positions = pred_cloud.point.positions[mask]
+    pred_feats = pred_feats[mask]
+
+    return pred_cloud, pred_feats
 
 
 ##################################################################################
@@ -48,58 +99,6 @@ def load_caption_map(pcd_path, anno_path):
     pcd.colors = o3d.utility.Vector3dVector(colors)
 
     return pcd, labels
-
-
-def load_feature_map(pcd_path, feat_path, json_file_path, normalize=True):
-    """
-    Load features map from disk, mask_feats.pt and objects/pcd_i.ply
-    :param path: path to feature map
-    :param normalize: whether to normalize features
-    :return: mask_pcds, mask_feats
-    """
-    if not os.path.exists(feat_path):
-        raise FileNotFoundError("Feature map not found in {}".format(feat_path))
-
-    # load mask_feats
-    feats = np.load(feat_path)
-
-    file_ext = os.path.splitext(feat_path)[1]
-
-    if file_ext == ".npz":
-        feats = feats["arr_0"]
-
-    print(np.shape(feats))
-
-    # load segment info
-    with open(json_file_path, "r") as f:
-        json_data = json.load(f)
-
-    # load pcd
-    pcd = o3d.io.read_point_cloud(pcd_path)
-    points = np.asarray(pcd.points)
-
-    mask_feats = np.full((len(points), 1024), -1, dtype=np.float32)
-
-    for group in json_data["segGroups"]:
-        objectId = group["objectId"]
-        feat = feats[objectId]
-        for segment in group["segments"]:
-            if segment < len(mask_feats):
-                mask_feats[segment] = feat
-
-    filtered_mask_feats = []
-    filtered_points = []
-    for feat, point in zip(mask_feats, points):
-        if not np.all(feat == -1):
-            filtered_mask_feats.append(feat)
-            filtered_points.append(point)
-
-    filtered_mask_feats = np.array(filtered_mask_feats)
-    filtered_points = np.array(filtered_points)
-
-    pcd.points = o3d.utility.Vector3dVector(filtered_points)
-
-    return pcd, filtered_mask_feats
 
 
 def read_gt_classes_replica(gt_labels_path):
@@ -156,5 +155,3 @@ def sim_2_label(similarity, input_labels):
     # labels = np.array([input_labels[i] for i in label_indices])
     labels = np.array(label_indices)
     return labels
-
-
