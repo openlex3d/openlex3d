@@ -1,0 +1,27 @@
+import logging
+from omegaconf import DictConfig
+from importlib import import_module
+
+# Define constants used across the datasets
+GT_VISIBLE_CLOUD_FILE = "gt_visible_cloud.pcd"
+GT_CATEGORIES_FILE = "gt_categories.json"
+
+# Data association threshold for BallTree data association
+# Used to assign instance labels from the ground truth to
+# the visible ground truth
+GT_DATA_ASSOCIATION_THR = 0.05  # meters
+
+logger = logging.getLogger(__name__)
+
+
+def load_dataset(config: DictConfig):
+    dataset_name = config.dataset.name
+    logger.info(f"Loading dataset [{config.dataset.name}]"
+                " scene [{config.dataset.scene}]")
+
+    dataset_module = import_module(f"openlex3d.datasets.{dataset_name}")
+    gt_cloud, gt_instance_labels = dataset_module.load_dataset(name=config.name, scene=config.scene, base_path=config.path, openlex3d_path=config.openlex3d_path)
+
+    # TODO: check if we want to run extra postprocessing common to all datasets
+
+    return gt_cloud, gt_instance_labels

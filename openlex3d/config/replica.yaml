@@ -1,0 +1,14 @@
+dataset:
+  name: replica 
+  scene: office0
+  path: # mandatory
+  openlex3d_path: # mandatory
+
+evaluation:
+  type: features
+  pred_path: predictions/scannetpp/scannetpp_c0f5742640_cg-detector_2024-10-22-15-54-59
+
+model:
+  type: open_clip
+  type:  ViT-H-14 # ViT-L/14@336px # ViT-H-14
+  checkpoint: checkpoints/laion2b_s32b_b79k.bin # checkpoints/ovseg_clipl14_9a1909.pth checkpoints/laion2b_s32b_b79k.bin

@@ -5,13 +5,20 @@ import numpy as np
 import open3d as o3d
 import plyfile
 
-# from segment_anything import sam_model_registry, SamAutomaticMaskGenerator, SamPredictor
 import torch
 
 import random
 from openlex3d.utils.clip_utils import get_text_feats
 
 
+from pathlib import Path
+
+def load_predicted_features(predictions_path: str):
+    pred_root = Path(predictions_path)
+    feat_path = pred_root.glob()
+
+
+##################################################################################
 def load_caption_map(pcd_path, anno_path):
     pcd = o3d.io.read_point_cloud(pcd_path)
     points = np.asarray(pcd.points)
@@ -151,74 +158,3 @@ def sim_2_label(similarity, input_labels):
     return labels
 
 
-# Function to read PLY file and assign colors based on object_id for replica dataset
-def read_ply_and_assign_colors_replica(file_path, semantic_info_path):
-    """
-    Read PLY file and assign colors based on object_id for replica dataset
-    :param file_path: path to PLY file
-    :param semantic_info_path: path to semantic info JSON file
-    :return: point cloud, class ids, point cloud instance, object ids
-    """
-    # Read PLY file
-    plydata = plyfile.PlyData.read(file_path)
-    # Read semantic info
-    with open(semantic_info_path) as f:
-        semantic_info = json.load(f)
-
-    object_class_mapping = {
-        obj["id"]: {
-            "class_id": obj["class_id"],
-            # "synonyms": obj["synonyms"],
-            # "vis_sim": obj["vis_sim"],
-            # "related": obj["related"]
-        }
-        for obj in semantic_info["objects"]
-    }
-
-    unique_class_ids = {obj["class_id"] for obj in semantic_info["objects"]}
-    unique_class_ids = np.array(list(unique_class_ids))
-
-    # Extract vertex data
-    vertices = np.vstack(
-        [plydata["vertex"]["x"], plydata["vertex"]["y"], plydata["vertex"]["z"]]
-    ).T
-    # Extract object_id and normalize it to use as color
-    face_vertices = plydata["face"]["vertex_indices"]
-    object_ids = plydata["face"]["object_id"]
-    vertices1 = []
-    object_ids1 = []
-    for i, face in enumerate(face_vertices):
-        vertices1.append(vertices[face])
-        object_ids1.append(np.repeat(object_ids[i], len(face)))
-    vertices1 = np.vstack(vertices1)
-    object_ids1 = np.hstack(object_ids1)
-
-    # set random color for every unique object_id/instance id
-    unique_object_ids = np.unique(object_ids)
-    instance_colors = np.zeros((len(object_ids1), 3))
-    unique_colors = np.random.rand(len(unique_object_ids), 3)
-    for i, object_id in enumerate(unique_object_ids):
-        instance_colors[object_ids1 == object_id] = unique_colors[i]
-
-    # semantic colors
-    class_ids = []
-    for object_id in object_ids1:
-        if object_id in object_class_mapping.keys():
-            # class_ids.append(object_class_mapping[object_id])
-            class_ids.append(object_id)
-        else:
-            class_ids.append(0)
-    class_ids = np.array(class_ids)
-    print("class_ids: ", class_ids.shape)
-    class_colors = np.zeros((len(object_ids1), 3))
-    unique_class_colors = np.random.rand(len(unique_class_ids), 3)
-    for i, class_id in enumerate(unique_class_ids):
-        class_colors[class_ids == class_id] = unique_class_colors[i]
-
-    pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(vertices1)
-    pcd.colors = o3d.utility.Vector3dVector(class_colors)
-    pcd_instance = o3d.geometry.PointCloud()
-    pcd_instance.points = o3d.utility.Vector3dVector(vertices1)
-    pcd_instance.colors = o3d.utility.Vector3dVector(instance_colors)
-    return pcd, class_ids, pcd_instance, object_ids1
