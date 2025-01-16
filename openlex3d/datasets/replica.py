@@ -21,6 +21,8 @@ def load_dataset(name: str, scene: str, base_path: str, openlex3d_path: str):
 
     # Load cloud
     gt_cloud, gt_labels = read_ply(str(ply_path), str(semantic_info_path))
+    assert gt_cloud.point.positions.shape[0] > 0
+    assert len(gt_labels) > 0
 
     # Load openlex3d dataset data
     # Read visible cloud
@@ -28,10 +30,11 @@ def load_dataset(name: str, scene: str, base_path: str, openlex3d_path: str):
     visible_cloud_path = openlex3d_root / od.GT_VISIBLE_CLOUD_FILE
     assert visible_cloud_path.exists()
     gt_visible_cloud = o3d.t.io.read_point_cloud(str(visible_cloud_path))
+    assert gt_visible_cloud.point.positions.shape[0] > 0
 
     # Associate points from ground truth cloud to visible ground truth cloud
-    gt_points = np.asarray(gt_cloud.point.positions)
-    gt_visible_points = np.asarray(gt_visible_cloud.point.positions)
+    gt_points = gt_cloud.point.positions.numpy()
+    gt_visible_points = gt_visible_cloud.point.positions.numpy()
 
     # We use BallTree data association
     ball_tree = BallTree(gt_points)
@@ -107,12 +110,8 @@ def read_ply(file_path: str, semantic_info_path: str):
         class_colors[class_ids == class_id] = unique_class_colors[i]
 
     # Make point cloud
-    cloud = o3d.t.geometry.PointCloud()
-    cloud.point.positions = o3d.utility.Vector3dVector(vertices1)
-    cloud.point.colors = o3d.utility.Vector3dVector(class_colors)
-
-    # Enforce unique class ids
-    class_ids = np.unique(class_ids)
+    cloud = o3d.t.geometry.PointCloud(vertices1)
+    cloud.point.colors = o3d.core.Tensor(class_colors)
 
     return cloud, class_ids
 

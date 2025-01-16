@@ -1,14 +1,16 @@
 dataset:
-  name: replica 
-  scene: office0
-  path: # mandatory
-  openlex3d_path: # mandatory
+  name: "replica"
+  scene: "room0"
+  path: "/home/matias/datasets/replica" # mandatory
+  openlex3d_path: "/home/matias/datasets/openlex3d" # mandatory
 
 evaluation:
   type: features
-  predictions_path: predictions/scannetpp/scannetpp_c0f5742640_cg-detector_2024-10-22-15-54-59
+  predictions_path: /home/matias/datasets/conceptgraphs_output
+  voxel_downsampling_size: 0.05
 
 model:
+  device: "cpu"
   type: open_clip
-  type:  ViT-H-14 # ViT-L/14@336px # ViT-H-14
-  checkpoint: checkpoints/laion2b_s32b_b79k.bin # checkpoints/ovseg_clipl14_9a1909.pth checkpoints/laion2b_s32b_b79k.bin
+  backbone:  ViT-H-14 # ViT-L/14@336px # ViT-H-14
+  checkpoint: laion2b_s32b_b79k # options: 'laion2b_s32b_b79k', 'metaclip_fullcc', 'metaclip_altogether', 'dfn5b'
