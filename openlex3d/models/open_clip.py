@@ -43,8 +43,8 @@ class OpenClip(VisualLanguageEncoder):
             text_batch = text_tokens[text_id : text_id + batch_size]
             with torch.inference_mode():
                 batch_feats = self._clip_model.encode_text(text_batch).float()
-            batch_feats /= batch_feats.norm(dim=-1, keepdim=True)
-            batch_feats = np.float32(batch_feats.cpu())
-            text_feats[text_id : text_id + batch_size, :] = batch_feats
-            text_id += batch_size
+                batch_feats /= batch_feats.norm(dim=-1, keepdim=True)
+                batch_feats = np.float32(batch_feats.cpu())
+                text_feats[text_id : text_id + batch_size, :] = batch_feats
+                text_id += batch_size
         return text_feats

@@ -56,11 +56,11 @@ def main(config: DictConfig):
         # Concatenate point coordinates and labels for predicted and ground truth cloud
         pred_coords = np.zeros((len(pred_cloud.point.positions), 4))
         pred_coords[:, :3] = pred_cloud.point.positions.numpy()
-        pred_coords[:, -1] = pred_labels.reshape(-1, 1)
+        pred_coords[:, -1] = pred_labels
 
         gt_coords = np.zeros((len(gt_cloud.point.positions), 4))
         gt_coords[:, :3] = gt_cloud.point.positions.numpy()
-        gt_coords[:, -1] = gt_labels.reshape(-1, 1)
+        gt_coords[:, -1] = gt_labels
 
         # ious, accs, mapping_labels = metric.IOU(
         #         pred_coords,

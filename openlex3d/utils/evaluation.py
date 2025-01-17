@@ -98,6 +98,7 @@ def load_predicted_features(
     )
     distances, indices = nbrs.kneighbors(points)
     pred_feats = pred_feats[indices[:, 0]]
+    pred_cloud = downsampled_pcd
 
     return pred_cloud, pred_feats
 
@@ -118,6 +119,7 @@ def load_prompt_list(base_path: str):
             line = line.strip()
             prompt_list.append(line)
 
+    assert len(prompt_list), "Prompt list is empty!"
     return prompt_list
 
 
