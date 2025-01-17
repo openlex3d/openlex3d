@@ -2,13 +2,11 @@ import open3d as o3d
 import numpy as np
 import plyfile
 import json
-import openlex3d.datasets as od
 
 from pathlib import Path
-from sklearn.neighbors import BallTree
 
 
-def load_dataset(name: str, scene: str, base_path: str, openlex3d_path: str):
+def load_dataset(name: str, scene: str, base_path: str):
     # Read original ground truth PLY
     # Prepare input paths
     dataset_root = Path(base_path, scene)
@@ -24,27 +22,7 @@ def load_dataset(name: str, scene: str, base_path: str, openlex3d_path: str):
     assert gt_cloud.point.positions.shape[0] > 0
     assert len(gt_labels) > 0
 
-    # Load openlex3d dataset data
-    # Read visible cloud
-    openlex3d_root = Path(openlex3d_path, name, scene)
-    visible_cloud_path = openlex3d_root / od.GT_VISIBLE_CLOUD_FILE
-    assert visible_cloud_path.exists()
-    gt_visible_cloud = o3d.t.io.read_point_cloud(str(visible_cloud_path))
-    assert gt_visible_cloud.point.positions.shape[0] > 0
-
-    # Associate points from ground truth cloud to visible ground truth cloud
-    gt_points = gt_cloud.point.positions.numpy()
-    gt_visible_points = gt_visible_cloud.point.positions.numpy()
-
-    # We use BallTree data association
-    ball_tree = BallTree(gt_points)
-    distances, indices = ball_tree.query(gt_visible_points, k=1)
-    gt_instance_labels = np.full(gt_visible_points.shape[0], -1)
-
-    mask_valid = distances.flatten() < od.GT_DATA_ASSOCIATION_THR
-    gt_instance_labels[mask_valid] = gt_labels[indices.flatten()[mask_valid]]
-
-    return gt_visible_cloud, gt_instance_labels
+    return gt_cloud, gt_labels
 
 
 # Function to read PLY file and assign colors based on object_id for replica dataset

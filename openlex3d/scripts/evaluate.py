@@ -11,12 +11,15 @@ from omegaconf import DictConfig
 from openlex3d import get_path
 from openlex3d.datasets import load_dataset
 from openlex3d.models import load_model
-from openlex3d.utils.evaluation import (
-    load_predicted_features,
-    load_prompt_list,
+from openlex3d.core.evaluation import (
     compute_feature_to_prompt_similarity,
     get_label_from_logits,
 )
+from openlex3d.core.io import (
+    load_predicted_features,
+    load_prompt_list,
+)
+from openlex3d.core.metric import intersection_over_union  # noqa
 
 
 logger = logging.getLogger(__name__)

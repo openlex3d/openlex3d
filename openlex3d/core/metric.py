@@ -3,6 +3,10 @@ import json
 from sklearn.neighbors import BallTree
 
 
+def intersection_over_union(prediction_points, gt_points):
+    pass
+
+
 def map_pred_to_gt(eval_segm, gt_segm, labels, object_class_mapping, mappings, typ=[]):
     if typ == "caption":
         with open(labels, "r") as f:
