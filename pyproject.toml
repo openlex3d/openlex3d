@@ -35,7 +35,8 @@ dependencies = [
     "opencv-python",
     "open_clip_torch",
     "torchmetrics",
-    "plyfile"
+    "plyfile",
+    "pyspellchecker"
 ]
 
 [build-system]
