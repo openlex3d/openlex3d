@@ -4,8 +4,10 @@ import numpy as np
 import open3d as o3d
 import itertools
 
+from typing import List
 from pathlib import Path
 from sklearn.neighbors import NearestNeighbors
+from openlex3d.core.colors import get_category_color
 
 
 SEGMENTS_ANNOTATION_FILE = "segments_anno.json"
@@ -117,3 +119,33 @@ def load_prompt_list(base_path: str):
 
     assert len(prompt_list), "Prompt list is empty!"
     return prompt_list
+
+
+def save_results(
+    output_path: str,
+    dataset: str,
+    scene: str,
+    algorithm: str,
+    points: np.ndarray,
+    pred_categories=List[str],
+):
+    # Prepare outputh path
+    output_cloud = Path(output_path, f"{dataset}_{scene}_{algorithm}.pcd")
+
+    # Map categories to colors
+    colors = np.array(
+        [get_category_color(category) for category in pred_categories], dtype=np.uint8
+    )
+
+    # Reconstruct output cloud
+    cloud = o3d.t.geometry.PointCloud(points)
+    cloud.point.colors = o3d.core.Tensor(colors / 255.0)
+
+    assert cloud.point.positions.shape[0] > 0
+    assert cloud.point.colors.shape[0] > 0
+
+    # Save
+    o3d.t.io.write_point_cloud(str(output_cloud), cloud)
+
+    # Prepare results yaml file
+    output_results = Path(output_path, f"{dataset}_{scene}_{algorithm}_result.yaml")  # noqa
