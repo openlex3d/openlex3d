@@ -10,7 +10,7 @@ evaluation:
   algorithm: conceptgraphs
   voxel_downsampling_size: 0.05
   output_path: /home/matias/datasets/openlex3d_output
-  excluded_labels: ["wall", "floor", "ceiling"]
+  excluded_labels: ["wall", "floor", "ceiling", "doorframe", "ledge", "windowledge"]
 
 model:
   device: "cpu"

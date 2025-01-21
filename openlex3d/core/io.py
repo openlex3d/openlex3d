@@ -3,11 +3,12 @@ import os
 import numpy as np
 import open3d as o3d
 import itertools
+import yaml
 
-from typing import List
+from typing import List, Dict, Any
 from pathlib import Path
 from sklearn.neighbors import NearestNeighbors
-from openlex3d.core.colors import get_category_color
+from openlex3d.core.categories import get_color
 
 
 SEGMENTS_ANNOTATION_FILE = "segments_anno.json"
@@ -128,13 +129,14 @@ def save_results(
     algorithm: str,
     points: np.ndarray,
     pred_categories=List[str],
+    results=Dict[str, Any],
 ):
     # Prepare outputh path
     output_cloud = Path(output_path, f"{dataset}_{scene}_{algorithm}.pcd")
 
     # Map categories to colors
     colors = np.array(
-        [get_category_color(category) for category in pred_categories], dtype=np.uint8
+        [get_color(category) for category in pred_categories], dtype=np.uint8
     )
 
     # Reconstruct output cloud
@@ -149,3 +151,6 @@ def save_results(
 
     # Prepare results yaml file
     output_results = Path(output_path, f"{dataset}_{scene}_{algorithm}_result.yaml")  # noqa
+
+    with open(str(output_results), "w") as file:
+        yaml.dump(results, file, default_flow_style=False)

@@ -1,83 +1,172 @@
 import json
-import numpy as np
 
-from omegaconf import DictConfig
 from typing import List
 
-__CATEGORIES = ["synonyms", "depictions", "vis_sim", "clutter", "missing", "incorrect"]
+
+NONE = "none"
+
+CATEGORIES = [
+    SYNONYMS := "synonyms",
+    DEPICTIONS := "depictions",
+    VISUALLY_SIMILAR := "vis_sim",
+    CLUTTER := "clutter",
+    MISSING := "missing",
+    INCORRECT := "incorrect",
+]
+
+COLORS = {
+    SYNONYMS: [34, 139, 34],  # green
+    DEPICTIONS: [255, 255, 0],  # yellow
+    VISUALLY_SIMILAR: [255, 165, 0],  # orange
+    CLUTTER: [0, 0, 255],  # blue,
+    INCORRECT: [255, 0, 0],  # red
+    NONE: [220, 220, 220],  # grey
+}
 
 
 def get_categories():
-    return __CATEGORIES
+    return CATEGORIES
+
+
+def get_main_categories():
+    return [SYNONYMS, DEPICTIONS, VISUALLY_SIMILAR]
+
+
+def get_color_mapping():
+    return COLORS
+
+
+def get_color(category: str):
+    assert category in CATEGORIES or category == NONE
+    return COLORS[category]
 
 
 class CategoriesHandler:
     def __init__(self, path: str):
         with open(path, "r") as f:
-            self._categories = DictConfig(json.load(f))
+            tmp_samples = (json.load(f))["dataset"]["samples"]
+
+        self._samples = {}
+        for i, sample in enumerate(tmp_samples):
+            self._samples[sample["object_id"]] = sample
 
     def has_object(self, id: int):
-        for obj in self._categories.dataset.samples[0]:
-            if obj.id == id:
+        """Checks if an object id exists
+
+        Args:
+            id (int): id of the object to search for
+
+        Returns:
+            bool: True if exists, False otherwise
+        """
+        try:
+            self._get_sample(id)
+            if len(self._get_labels_from_category(id, SYNONYMS)):
                 return True
-        else:
+            else:
+                # If there are no synonyms return False
+                return False
+        except Exception:
+            # If there is no matching object return False
             return False
 
-    def _match(self, id: int, query: str, category: str):
-        if category in ["clutter", "missing", "incorrect"]:
-            return 0.0
-        # This checks if the query exists in the list of labels for the category
-        return float(
-            query
-            in self._categories.dataset.samples[id].labels.image_attributes[category]
-        )
+    def match(self, id: int, query: str) -> str:
+        """Interface to match an object with a query label
 
-    def _check_clutter(self, id: int, query: str):
-        # This gets the list of indices of the clutter, and uses them to check matches
-        clutter_ids = self._categories.dataset.samples[id].labels.image_attributes[
-            "clutter"
-        ]
-        for id in clutter_ids:
-            output = self._match(id, query, "synonyms")
-            if output > 0.0:
-                return 1.0
-        return 0.0
+        Args:
+            id (int): id of the object
+            query (str): predicted label for the object to match
 
-    def match(self, id: int, query: str, category: str = "all") -> np.ndarray:
+        Returns:
+            str: label of the corresponding category it matches with, 'incorrect' if not match is found
+        """
         # This is the main interface to find a match
         assert isinstance(query, str)
-        assert category in get_categories() or category == "all"
 
-        output = np.zeros(len(get_categories()))
+        # Check if clutter
+        if self._check_clutter(id, query):
+            return CLUTTER
 
-        if category == "all":
-            for i, cat in enumerate(get_categories()):
-                if cat == "clutter":
-                    output[i] = self._check_clutter(id, query)
-                else:
-                    output[i] = self._match(id, query, cat)
+        # Check if any of the main categories
+        for i, cat in enumerate(get_main_categories()):
+            if self._match(id, query, cat):
+                return cat
 
-                if output[i] > 0.0:
-                    break
-        else:
-            i = get_categories().index(category)
-            output[i] = self._match(id, query, category)
+        # Otherwise incorrect
+        return INCORRECT
 
-        # If there are no matches, therefore is "incorrect"
-        if np.sum(output) == 0.0:
-            output[-1] = 1.0
+    def batch_category_match(
+        self, id: int, query: List[str], category: str
+    ) -> List[bool]:
+        """Checks if a list of labels fall into the given category
 
-        return output
+        Args:
+            id (int): id of the object to match against
+            query (List[str]): List of predicted labels (strings)
+            category (str): Category to match agains
 
-    def batch_match(
-        self, id: int, query: List[str], category: str = "all"
-    ) -> np.ndarray:
-        # This calls the matcher for a list of queries queries
-        assert isinstance(query, list)
-        M = len(query)
-        output = np.zeros(M, len(get_categories()))
+        Returns:
+            List[bool]: List of booleans with the queries that fall into the category
+        """
 
+        # This calls the matcher for a list of queries
+        matches = []
         for i, query in enumerate(query):
-            output[i, :] = self.match(id, query, category)
+            matches.append(self._match(id, query, category))
+        return matches
 
-        return output
+    def _get_sample(self, id: int):
+        try:
+            return self._samples[id]
+        except Exception:
+            raise IndexError(f"Object {id} not found")
+
+    def _get_labels_from_category(self, id: int, category: str) -> List[str]:
+        """This provides a simpler interface to get the labels on a category
+
+        Args:
+            id (int): id of the object to match against
+            category (str): category to query
+
+        Returns:
+            List[str]: List of labels associated to the category
+        """
+        try:
+            sample = self._get_sample(id)
+            return sample["labels"]["image_attributes"][category]
+        except Exception:
+            return []
+
+    def _match(self, id: int, query: str, category: str) -> bool:
+        """Private method, provides a binary
+
+        Args:
+            id (int): id of the object to match against
+            query (str): predicted label for the object to match
+            category (str): Specific category to match against
+
+        Returns:
+            bool: _True if the query exists in the given category
+        """
+        if category not in get_main_categories():
+            return False
+        # This checks if the query exists in the list of labels for the category
+        return query in self._get_labels_from_category(id, category)
+
+    def _check_clutter(self, id: int, query: str) -> bool:
+        """Check if the query falls into the clutter category
+        We consider the object as clutter
+
+        Args:
+            id (int): id of the object to match against
+            query (str): predicted label for the object to match
+
+        Returns:
+            bool: True if object was classified as clutter
+        """
+        # This gets the list of indices of the clutter, and uses them to check matches
+        clutter_ids = self._get_labels_from_category(id, CLUTTER)
+        for id in clutter_ids:
+            if self._match(id, query, SYNONYMS):
+                return True
+        return False

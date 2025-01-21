@@ -61,7 +61,6 @@ def main(config: DictConfig):
             gt_cloud=gt_cloud,
             gt_ids=gt_ids,
             gt_labels_handler=openlex3d_gt_handler,
-            prompt_list=prompt_list,
             excluded_labels=config.evaluation.excluded_labels,
         )
 

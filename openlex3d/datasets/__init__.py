@@ -35,6 +35,9 @@ def load_dataset(config: DictConfig, load_openlex3d: bool = False):
         base_path=config.path,
     )
 
+    assert isinstance(gt_cloud, o3d.t.geometry.PointCloud)
+    assert isinstance(original_gt_labels, np.ndarray)
+
     openlex3d_gt_handler = None
     if load_openlex3d:
         assert (
