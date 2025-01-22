@@ -127,7 +127,7 @@ def save_results(
     dataset: str,
     scene: str,
     algorithm: str,
-    points: np.ndarray,
+    reference_cloud: o3d.t.geometry.PointCloud,
     pred_categories=List[str],
     results=Dict[str, Any],
 ):
@@ -136,11 +136,11 @@ def save_results(
 
     # Map categories to colors
     colors = np.array(
-        [get_color(category) for category in pred_categories], dtype=np.uint8
+        [get_color(category) for category in pred_categories], dtype=float
     )
 
     # Reconstruct output cloud
-    cloud = o3d.t.geometry.PointCloud(points)
+    cloud = reference_cloud.clone()
     cloud.point.colors = o3d.core.Tensor(colors / 255.0)
 
     assert cloud.point.positions.shape[0] > 0

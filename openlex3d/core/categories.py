@@ -19,8 +19,9 @@ COLORS = {
     DEPICTIONS: [255, 255, 0],  # yellow
     VISUALLY_SIMILAR: [255, 165, 0],  # orange
     CLUTTER: [0, 0, 255],  # blue,
+    MISSING: [220, 220, 220],  # blue,
     INCORRECT: [255, 0, 0],  # red
-    NONE: [220, 220, 220],  # grey
+    NONE: [0, 0, 0],  # black
 }
 
 
