@@ -66,7 +66,7 @@ def main(config: DictConfig):
 
         # Export predicted clouds
         save_results(
-            output_path=config.evaluation.predictions_path,
+            output_path=config.evaluation.output_path,
             dataset=config.dataset.name,
             scene=config.dataset.scene,
             algorithm=config.evaluation.algorithm,
