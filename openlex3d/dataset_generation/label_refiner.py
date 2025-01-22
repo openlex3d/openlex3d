@@ -11,7 +11,7 @@ def merge_json_files(json_files):
             "name": "",
             "synonyms": set(),
             "visually_similar": set(),
-            "related": set(),
+            "depictions": set(),
         }
     )
 
@@ -20,7 +20,17 @@ def merge_json_files(json_files):
             data = json.load(f)
             for sample in data.get("dataset", {}).get("samples", []):
                 name = sample.get("name")
-                print(sample)
+                labels_exist = sample.get("labels", {}).get("ground-truth", {})
+
+                if not labels_exist:
+                    continue
+
+                skipped = labels_exist.get("label_status", {})
+
+                if skipped == "SKIPPED":
+                    continue
+
+                name = sample.get("name")
                 labels = (
                     sample.get("labels", {})
                     .get("ground-truth", {})
@@ -48,7 +58,7 @@ def merge_json_files(json_files):
                     related = image_attributes[
                         "Related / patterns on objects etc"
                     ].split(",")
-                    image_data[name]["related"].update(
+                    image_data[name]["depictions"].update(
                         label.strip().lower() for label in related if label.strip()
                     )
 
@@ -96,7 +106,7 @@ def merge_json_files(json_files):
                 "image_attributes": {
                     "synonyms": sorted(labels["synonyms"]),
                     "vis_sim": sorted(labels["visually_similar"]),
-                    "depictions": sorted(labels["related"]),
+                    "depictions": sorted(labels["depictions"]),
                 }
                 # }
                 # }
@@ -108,10 +118,10 @@ def merge_json_files(json_files):
         name: {
             "synonyms_count": len(labels["synonyms"]),
             "visually_similar_count": len(labels["visually_similar"]),
-            "related_count": len(labels["related"]),
+            "related_count": len(labels["depictions"]),
             "total_labels": len(labels["synonyms"])
             + len(labels["visually_similar"])
-            + len(labels["related"]),
+            + len(labels["depictions"]),
         }
         for name, labels in image_data.items()
     }
@@ -132,7 +142,7 @@ def merge_json_files(json_files):
     total_unique_labels = len(
         set(
             label
-            for category in ["synonyms", "visually_similar", "related"]
+            for category in ["synonyms", "visually_similar", "depictions"]
             for labels in image_data.values()
             for label in labels[category]
         )
@@ -155,7 +165,7 @@ def merge_json_files(json_files):
     all_labels = sorted(
         set(
             label
-            for category in ["synonyms", "visually_similar", "related"]
+            for category in ["synonyms", "visually_similar", "depictions"]
             for labels in image_data.values()
             for label in labels[category]
         )
