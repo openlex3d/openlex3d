@@ -1,0 +1,9 @@
+dataset:
+  name: "replica"
+  scene: "office4"
+  path: "/media/christina/T7 Shield1/data/Replica-Full"
+
+jsons:
+  json_path: "/home/christina/openlex3d_labels/replica/office4/replica_office4_merged_reviewed.json"
+  updated_json_path: "/home/christina/openlex3d_labels/replica/office4/replica_office4_merged_reviewed_clutter.json"
+
