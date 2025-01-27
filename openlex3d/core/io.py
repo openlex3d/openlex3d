@@ -10,12 +10,11 @@ from pathlib import Path
 from sklearn.neighbors import NearestNeighbors
 from openlex3d.core.categories import get_color
 
-
-SEGMENTS_ANNOTATION_FILE = "segments_anno.json"
 PROMPT_LIST_FILE = "prompt_list.txt"
 
-FEATURES_ALLOWED_FORMATS = ["*.npy", "*.npz"]
 CLOUD_ALLOWED_FORMATS = ["*.pcd", "*.ply"]
+FEATURE_FILE = "embeddings.npy"
+INDEX_FILE = "index.npy"
 
 
 def load_predicted_features(
@@ -23,70 +22,23 @@ def load_predicted_features(
 ):
     # Prepare paths
     pred_root = Path(predictions_path)
-    feat_path = list(
-        itertools.chain.from_iterable(
-            pred_root.glob(pattern) for pattern in FEATURES_ALLOWED_FORMATS
-        )
-    )[0]
-    assert feat_path.exists()
+    feat_path = pred_root / FEATURE_FILE
+    assert feat_path.exists(), f"Features file {feat_path} does not exist"
 
     cloud_path = list(
         itertools.chain.from_iterable(
             pred_root.glob(pattern) for pattern in CLOUD_ALLOWED_FORMATS
         )
     )[0]
-    assert cloud_path.exists()
+    assert cloud_path.exists(), f"Point cloud file {cloud_path} does not exist"
 
-    segment_annotation_path = pred_root / SEGMENTS_ANNOTATION_FILE
-    assert segment_annotation_path.exists()
-
-    # Load mask_feats
-    pred_feats = np.load(feat_path)
-
-    # TODO Note (matias): this is hacky, why is it needed?
-    # It seems like a patch for a corner case
-    file_ext = os.path.splitext(feat_path)[1]
-    if file_ext == ".npz":
-        pred_feats = pred_feats["arr_0"]
-
-    # Get dimensions of predicted features array
-    B, D = pred_feats.shape
+    index_file = pred_root / INDEX_FILE
+    assert index_file.exists(), f"Index file {index_file} does not exist"
 
     # Load predicted cloud
     pred_cloud = o3d.t.io.read_point_cloud(cloud_path)
     points = pred_cloud.point.positions.numpy()
     N = len(points)
-
-    # Load segment annotations
-    with open(segment_annotation_path, "r") as f:
-        segment_annotations = json.load(f)
-
-    # Note (matias): It would be nice to redesign the code below
-    # The main problem I see is that it copies features into a list
-    # so we have a dynamic array there. Perhaps there is some array
-    # operation we can do instead
-    mask_feats = np.full((N, D), -1, dtype=np.float32)
-
-    for group in segment_annotations["segGroups"]:
-        objectId = group["objectId"]
-        feat = pred_feats[objectId]
-        for segment in group["segments"]:
-            if segment < len(mask_feats):
-                mask_feats[segment] = feat
-
-    filtered_mask_feats = []
-    filtered_points = []
-    for feat, point in zip(mask_feats, points):
-        if not np.all(feat == -1):
-            filtered_mask_feats.append(feat)
-            filtered_points.append(point)
-
-    filtered_mask_feats = np.array(filtered_mask_feats)
-    filtered_points = np.array(filtered_points)
-
-    # Apply mask
-    pred_cloud.point.positions = np.array(filtered_points)
-    pred_feats = np.array(filtered_mask_feats)
 
     # Post-processing of the predicted cloud
     # Downsampling the cloud and discarding corresponding features
@@ -95,9 +47,20 @@ def load_predicted_features(
     nbrs = NearestNeighbors(n_neighbors=1, algorithm="auto").fit(
         pred_cloud.point.positions.numpy()
     )
-    distances, indices = nbrs.kneighbors(points)
-    pred_feats = pred_feats[indices[:, 0]]
+    _, keep_indices = nbrs.kneighbors(points)
+    keep_indices = keep_indices.flatten()
     pred_cloud = downsampled_pcd
+
+    # Load features
+    pred_feats_mask = np.load(feat_path) # (n_objects, D)
+    pcd_to_mask = np.load(index_file).astype(int) # (n_points,)
+
+    # Make sure pcd_to_mask indices has the same length as the number of points in original cloud
+    assert len(pcd_to_mask) == N, f"Length of index.npy ({len(pcd_to_mask)}) does not match the number of points in the predicted point cloud ({N})"
+
+    # Assign features to points
+    pcd_to_mask = pcd_to_mask[keep_indices]
+    pred_feats = pred_feats_mask[pcd_to_mask]
 
     return pred_cloud, pred_feats
 
