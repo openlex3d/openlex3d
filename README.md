@@ -14,7 +14,8 @@ pip install openlex3d
 ### For development
 
 ```sh
-pip install -e openlex3d
+conda create -n openlex3d-env python=3.11
+pip install -e .
 pre-commit install
 ```
 
