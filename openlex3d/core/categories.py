@@ -43,12 +43,20 @@ def get_color(category: str):
 
 
 class CategoriesHandler:
-    def __init__(self, path: str):
+    def __init__(self, path: str, strip_spaces: bool = True):
+        self.strip_spaces = strip_spaces
         with open(path, "r") as f:
             tmp_samples = (json.load(f))["dataset"]["samples"]
 
         self._samples = {}
-        for i, sample in enumerate(tmp_samples):
+        for _, sample in enumerate(tmp_samples):
+            if self.strip_spaces:
+                for cat in get_main_categories():
+                    sample["labels"]["image_attributes"][cat] = [
+                        label.replace(" ", "")
+                        for label in sample["labels"]["image_attributes"][cat]
+                    ]
+
             self._samples[sample["object_id"]] = sample
 
     def has_object(self, id: int):
@@ -152,6 +160,11 @@ class CategoriesHandler:
         if category not in get_main_categories():
             return False
         # This checks if the query exists in the list of labels for the category
+
+        if self.strip_spaces:
+            # We strip spaces to avoid negative matches due to inconsistent spacing
+            query = query.replace(" ", "")
+
         return query in self._get_labels_from_category(id, category)
 
     def _check_clutter(self, id: int, query: str) -> bool:
