@@ -37,9 +37,7 @@ def compute_feature_to_prompt_similarity(
     return similarity
 
 
-def get_label_from_logits(
-    logits: np.ndarray, text_prompt: List[str], method="max"
-) -> List[str]:
+def get_label_from_logits(logits: np.ndarray, text_prompt: List[str], method="max"):
     """
     Convert similarity matrix to labels
     :param similarity: similarity matrix
@@ -51,6 +49,10 @@ def get_label_from_logits(
         label_indices = logits.argmax(axis=1)
         # convert label indices to label names
         labels = [text_prompt[i] for i in label_indices]
+    elif method == "topn":
+        # find the top n labels with the highest similarity
+        top_indices = np.argsort(logits, axis=1)[:, -5:][:, ::-1]
+        labels = np.array([[text_prompt[i] for i in row] for row in top_indices])
     else:
         raise NotImplementedError(f"method [{method}] not implemented")
     return labels
