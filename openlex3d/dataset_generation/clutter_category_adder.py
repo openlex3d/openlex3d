@@ -26,7 +26,14 @@ def calculate_bounding_boxes(pcd, labels):
         cluster_points = pcd_points[labels == label]
 
         points = o3d.utility.Vector3dVector(cluster_points)
-        o3d_bounding_box = o3d.geometry.OrientedBoundingBox.create_from_points(points)
+
+        try:
+            o3d_bounding_box = o3d.geometry.OrientedBoundingBox.create_from_points(
+                points
+            )
+        except Exception as e:
+            print(f"Error creating bounding box: {e}")
+            continue
         # o3d_bounding_box = o3d.geometry.AxisAlignedBoundingBox.create_from_points(
         #     points
         # )

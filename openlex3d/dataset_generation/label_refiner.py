@@ -67,7 +67,7 @@ def merge_json_files(json_files):
 
     # Prepare the merged JSON structure
     merged_json = {
-        "name": "hm3d_000877_merged",
+        "name": "hm3d_000890_merged",
         "dataset": {
             # "name": "replica",
             # "task_attributes": {
@@ -189,10 +189,10 @@ def merge_json_files(json_files):
 def main():
     # Define the list of JSON files to merge
     json_files = [
-        "/home/christina/openlex3d_labels/hm3d/000877/hm3dsem-00877_fh-v0.1.json",
-        "/home/christina/openlex3d_labels/hm3d/000877/hm3dsem-00877-maryam-v0.1.json",
-        "/home/christina/openlex3d_labels/hm3d/000877/hm3dsem-00877-mb-ulli-v0.1.json",
-        "/home/christina/openlex3d_labels/hm3d/000877/hm3dsem-00877_mando-v0.1.json",
+        "/home/christina/openlex3d_labels/hm3d/000890/hm3dsem-00890_fh-v0.1.json",
+        "/home/christina/openlex3d_labels/hm3d/000890/hm3dsem-00890-mb-martin-v0.1.json",
+        "/home/christina/openlex3d_labels/hm3d/000890/hm3dsem-00890-mb-ulli-v0.1.json",
+        "/home/christina/openlex3d_labels/hm3d/000890/hm3dsem-00890-maryam-v0.1.json",
     ]
 
     for file in json_files:
@@ -203,12 +203,12 @@ def main():
     merged_data, summary = merge_json_files(json_files)
 
     with open(
-        "/home/christina/openlex3d_labels/hm3d/000877/hm3dsem_000877_merged.json", "w"
+        "/home/christina/openlex3d_labels/hm3d/000890/hm3dsem_000890_merged.json", "w"
     ) as f:
         json.dump(merged_data, f, indent=4)
 
     with open(
-        "/home/christina/openlex3d_labels/hm3d/000877/hm3dsem_000877_merged_metadata.json",
+        "/home/christina/openlex3d_labels/hm3d/000890/hm3dsem_000890_merged_metadata.json",
         "w",
     ) as f:
         json.dump(summary, f, indent=4)

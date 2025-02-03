@@ -4,10 +4,10 @@ import torch
 from pathlib import Path
 
 
-def load_dataset(name: str, scene: str, base_path: str, openlex3d_path: str):
+def load_dataset(name: str, scene: str, base_path: str):
     # Read original ground truth PLY
     # Prepare input paths
-    dataset_root = Path(base_path, name, scene)
+    dataset_root = Path(base_path, "prepared_semantics")
 
     gt_path = dataset_root / f"{scene}.pth"
     assert gt_path.exists()
@@ -21,8 +21,8 @@ def load_dataset(name: str, scene: str, base_path: str, openlex3d_path: str):
 
     # TODO Note: We need to check if we need the visible cloud for this as well
     gt_cloud = o3d.t.geometry.PointCloud()
-    gt_cloud.point.positions = o3d.utility.Vector3dVector(coords)
-    gt_cloud.point.colors = o3d.utility.Vector3dVector(colors)
+    gt_cloud.point.positions = o3d.core.Tensor(coords)
+    gt_cloud.point.colors = o3d.core.Tensor(colors)
 
     # get ground truth labels
     gt_instance_labels = data["sampled_instance_anno_id"]
