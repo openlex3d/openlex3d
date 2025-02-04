@@ -1,185 +1,221 @@
-"""
-    Habitat Matterport 3D Semantics Walks dataset loader.
-"""
-
-import math
+import json
 import os
 import sys
+from collections import defaultdict
 
+import networkx as nx
 import numpy as np
 import open3d as o3d
-import torchvision
-from PIL import Image
+import torch
+from PIL import ImageColor
+from scipy.optimize import linear_sum_assignment
+from torchmetrics.functional import pairwise_cosine_similarity
 
-# pylint: disable=all
 
-class HM3DSemWalksDataset():
-    """
-    Dataset class for the Habitat Matterport3D Semantic Walks dataset.
+class PanopticBuildingEval:
+    def __init__(self, building_id):
+        self.id = building_id
+        self.type = "building"
+        self.name = "building"
 
-    This class provides an interface to load RGB-D data samples from the HM3DSem-Walks
-    dataset.
-    """    
-    def __init__(self, cfg):
-        """
-        Args:
-            root_dir: Path to the root directory containing the dataset.
-            transforms: Optional transformations to apply to the data.
-        """
-        self.root_dir = cfg["root_dir"]
-        self.transforms = cfg["transforms"]
-        self.data_list = self._get_data_list()
-        self.rgb_H = self._load_image(self.data_list[0][0]).size[1]
-        self.rgb_W = self._load_image(self.data_list[0][0]).size[0]
-        self.depth_intrinsics = self._load_depth_intrinsics(self.rgb_H, self.rgb_W)
-        self.scale = 1000.0
+    def __str__(self):
+        return f"{self.id}"
+
+
+class PanopticLevelEval:
+    def __init__(self, level_id, lower, upper):
+        self.id = level_id
+        self.lower = lower
+        self.upper = upper
+        self.type = "floor"
+
+        self.regions = []
+        self.objects = []
+
+    def __str__(self):
+        return f"{self.id}"
     
-    def __getitem__(self, idx):
-        """
-        Get a data sample based on the given index.
+    def __print__(self) -> str:
+        return f"{self.id}"
 
-        Args:
-            idx: Index of the data sample.
 
-        Returns:
-            RGB image and depth image as numpy arrays.
-        """
-        rgb_path, depth_path, pose_path = self.data_list[idx]
-        rgb_image = self._load_image(rgb_path)
-        depth_image = self._load_depth(depth_path)
-        pose = self._load_pose(pose_path)
-        depth_intrinsics = self._load_depth_intrinsics(self.rgb_H, self.rgb_W)
-        if self.transforms is not None:
-            rgb_image = self.transforms(rgb_image)
-            depth_image = self.transforms(depth_image)   
-        return rgb_image, depth_image, pose, list(), depth_intrinsics
+class PanopticRegionEval():
+    def __init__(self, region_id, floor_id, category, voted_category, min_height, max_height, mean_height):
+        self.id = region_id
+        self.floor_id = floor_id
+        self.voted_category = voted_category
+        self.category = category
+        self.hier_id = f"{self.floor_id}_{self.id}"
+        self.objects = []
+        self.type = "room"
+
+        self.min_height = min_height
+        self.max_height = max_height
+        self.mean_height = mean_height
+        self.region_points = None
+        self.bev_region_points = None
+
+    def __str__(self) -> str:
+        return f"{self.floor_id}_{self.id}"
+
+
+class PanopticObjectEval():
+    def __init__(self, object_id, region_id, floor_id, category, hex):
+        # semantics object info
+        self.id = object_id
+        self.hex = hex
+        self.category = category
+        self.region_id = region_id
+        self.floor_id = floor_id
+        self.rgb = np.array(ImageColor.getcolor("#" + self.hex, "RGB"))
+        self.type = "object"
+        self.hier_id = f"{self.floor_id}_{self.region_id}_{self.id}"
+
+        # habitat object info
+        self.aabb_center = None
+        self.aabb_dims = None
+        self.obb_center = None
+        self.obb_dims = None
+        self.obb_rotation = None
+        self.obb_local_to_world = None
+        self.obb_world_to_local = None
+        self.obb_volume = None
+        self.obb_half_extents = None
+
+        # point cloud data
+        self.points = None
+        self.colors = None
+
+    def __print__(self):
+        print("id:", self.id, "category:", self.category, "hex_color:", self.hex, "region_id:", self.region_id)
+
+    def __str__(self) -> str:
+        return f"{self.floor_id}_{self.region_id}_{self.id}"
+
+
+class HM3DSemanticEvaluator:
+    def __init__(self):
+        self.gt_graph = nx.DiGraph()
+
+        self.gt_floors = dict()
+        self.gt_rooms = dict()
+        self.gt_objects = []
+
+    def load_gt_graph_from_json(self, path):
+        self.gt_scene_infos_path = path
+        print("Loading GT graph from: ", self.gt_scene_infos_path)
+        with open(self.gt_scene_infos_path, "r") as file:
+            scene_info = json.load(file)
+
+        building = PanopticBuildingEval(-1)
+        self.gt_graph.add_node(building, name="building", type="building")
+
+        for level_info in scene_info["levels"]:
+            level_id = level_info["id"]
+            floor = PanopticLevelEval(level_id, level_info["lower"], level_info["upper"])
+            floor.regions = level_info["regions"]
+            floor.objects = level_info["objects"]
+
+            self.gt_graph.add_node(floor, name=f"floor_{level_id}", type="floor")
+            self.gt_graph.add_edge(building, floor)
+            self.gt_floors[floor.id] = floor
+
+        for region_info in scene_info["regions"]:
+            room = PanopticRegionEval(
+                region_info["id"],
+                region_info["floor_id"],
+                region_info["category"],
+                region_info["voted_category"],
+                region_info["min_height"],
+                region_info["max_height"],
+                region_info["mean_height"],
+            )
+            room.graph_id = f"{room.floor_id}_{room.id}"
+            room.bev_region_points = np.array(region_info["bev_region_points"])
+            room.bev_pcd = o3d.geometry.PointCloud()
+            room.bev_pcd.points = o3d.utility.Vector3dVector(room.bev_region_points)
+            room.objects = region_info["objects"]
+
+            print(room)
+
+            self.gt_graph.add_node(room, name=f"room_{room.id}", type="room")
+            self.gt_graph.add_edge(self.gt_floors[int(room.floor_id)], room)
+            self.gt_rooms[room.id] = room
+
+        for obj_info in scene_info["objects"]:
+            obj = PanopticObjectEval(
+                obj_info["id"], obj_info["region_id"], obj_info["floor_id"], obj_info["category"], obj_info["hex"]
+            )
+            obj.aabb_center, obj.aabb_dims = obj_info["aabb_center"], obj_info["aabb_dims"]
+            obj.obb_center, obj.obb_dims = obj_info["obb_center"], obj_info["obb_dims"]
+            obj.obb_rotation = obj_info["obb_rotation"]
+            obj.obb_local_to_world = obj_info["obb_local_to_world"]
+            obj.obb_world_to_local = obj_info["obb_world_to_local"]
+            obj.obb_volume = obj_info["obb_volume"]
+            obj.obb_half_extents = obj_info["obb_half_extents"]
+
+            # load points from object pcd under self.gt_scene_infos_path + "/objects"
+            obj_pcd_path = os.path.join(
+                os.path.dirname(self.gt_scene_infos_path), "objects", str(obj_info["id"]) + ".ply"
+            )
+            obj.pcd = o3d.io.read_point_cloud(obj_pcd_path)
+            obj.points = np.asarray(obj.pcd.points)
+
+            self.gt_graph.add_node(obj, name=obj.category, type="object")
+            self.gt_graph.add_edge(self.gt_rooms[int(obj.region_id)], obj)
+            self.gt_objects.append(obj)
+
+        print("----------------------------")
+        print("GT graph loaded:")
+        print("Number of GT floors: ", len([node for node in self.gt_graph.nodes if node.type == "floor"]))
+        print("Number of GT rooms: ", len([node for node in self.gt_graph.nodes if node.type == "room"]))
+        print("Number of GT objects: ", len([node for node in self.gt_graph.nodes if node.type == "object"]))
+        print("----------------------------")
+
+
+    def add_synoym_labels(self, syn_path):
+        pass
+
+    def get_results(self):
+        return self.metrics
+
+
+    def object_semantics_eval_tp_auc(
+        self, top_k_spec, row_ind, col_ind, pred_objects, gt_objects, gt_text_feats, gt_classes
+    ):
+        success_k = {k: list() for k in top_k_spec}
+        for pred_idx, gt_idx in zip(row_ind, col_ind):
+            # dot_sim = np.dot(pred_objects[pred_idx].embedding, gt_text_feats.T)
+            dot_sim = (
+                pairwise_cosine_similarity(
+                    torch.from_numpy(pred_objects[pred_idx].embedding.reshape(1, -1)).float(),
+                    torch.from_numpy(gt_text_feats).float(),
+                )
+                .squeeze(0)
+                .numpy()
+            )
+            # sort the dot similarity scores in descending order
+            sorted_dot_similarity = np.sort(dot_sim)[::-1]
+            for k in top_k_spec:
+                top_k_idx = np.argsort(dot_sim)[::-1][:k]
+                # get names of top k classes
+                top_k_classes = [gt_classes[idx] for idx in top_k_idx]
+                if gt_objects[gt_idx].category in top_k_classes:
+                    success_k[k].append((pred_idx))
+        top_k_acc = {k: len(v) / len(col_ind) for k, v in success_k.items()}
+
+        norm_top_k = [k / len(gt_classes) for k in top_k_spec]
+        tp_top_k_auc = np.trapz(list(top_k_acc.values()), norm_top_k)
+        return top_k_acc, tp_top_k_auc
     
-    def __len__(self):
-        return len(self.data_list)
-    
-    def _get_data_list(self):
-        """
-        Get a list of RGB-D data samples based on the dataset format and mode.
 
-        Returns:
-            List of RGB-D data samples (RGB image path, depth image path).
-        """
-        rgb_data_list = []
-        depth_data_list = []
-        pose_data_list = []
-        rgb_data_list = os.listdir(self.root_dir + "/rgb")
-        rgb_data_list = [self.root_dir + "/rgb/" + x for x in rgb_data_list]
-        depth_data_list = os.listdir(self.root_dir + "/depth")
-        depth_data_list = [self.root_dir + "/depth/" + x for x in depth_data_list]
-        pose_data_list = os.listdir(self.root_dir + "/pose")
-        pose_data_list = [self.root_dir + "/pose/" + x for x in pose_data_list]
-        # sort the data list
-        rgb_data_list.sort()
-        depth_data_list.sort()
-        pose_data_list.sort()
-        return list(zip(rgb_data_list, depth_data_list, pose_data_list))
-        
-    def _load_image(self, path):
-        """
-        Load the RGB image from the given path.
+if __name__ == "__main__":
+    gt_path = sys.argv[1]
+    syn_path = sys.argv[2]
+    hm3d_gt = HM3DSemanticEvaluator()
+    hm3d_gt.load_gt_graph_from_json(gt_path)
+    hm3d_gt.add_synoym_labels(syn_path)
 
-        Args:
-            path: Path to the RGB image file.
-
-        Returns:
-            RGB image as a numpy array.
-        """
-        # Load the RGB image using PIL
-        rgb_image = Image.open(path)
-        return rgb_image
-
-    def _load_depth(self, path):
-        """
-        Load the depth image from the given path.
-
-        Args:
-            path: Path to the depth image file.
-
-        Returns:
-            Depth image as a numpy array.
-        """
-        # Load the depth image using OpenCV
-        depth_image = Image.open(path)
-        return depth_image
-    
-    def _load_pose(self, path):
-        """
-        Load the camera pose from the given path.
-
-        Args:
-            path: Path to the camera pose file.
-
-        Returns:
-            Camera pose as a numpy array (4x4 matrix).
-        """
-        with open(path, "r") as file:
-            line = file.readline().strip()
-            values = line.split()
-            values = [float(val) for val in values]
-            transformation_matrix = np.array(values).reshape((4, 4))
-            C = np.eye(4)
-            C[1, 1] = -1
-            C[2, 2] = -1
-            transformation_matrix = np.matmul(transformation_matrix, C)
-        return transformation_matrix
-    
-    def _load_depth_intrinsics(self, H, W):
-        """
-        Load the depth camera intrinsics.
-
-        Returns:
-            Depth camera intrinsics as a numpy array (3x3 matrix).
-        """        
-        hfov = 90 * np.pi / 180
-        vfov = 2 * math.atan(np.tan(hfov / 2) * H / W)
-        fx = W / (2.0 * np.tan(hfov / 2.0))
-        fy = H / (2.0 * np.tan(vfov / 2.0))
-        cx = W / 2
-        cy = H / 2
-        depth_camera_matrix = np.array([[fx, 0.0, cx], [0.0, fy, cy], [0.0, 0.0, 1.0]])
-        return depth_camera_matrix
-
-    def create__pcd(self, rgb, depth, camera_pose=None):
-        """
-        Create a point cloud from RGB-D images.
-
-        Args:
-            rgb: RGB image as a numpy array.
-            depth: Depth image as a numpy array.
-            camera_pose: Camera pose as a numpy array (4x4 matrix).
-
-        Returns:
-            Point cloud as an Open3D object.
-        """
-        # convert rgb and depth images to numpy arrays
-        rgb = np.array(rgb)
-        depth = np.array(depth)
-        # load depth camera intrinsics
-        H = rgb.shape[0]
-        W = rgb.shape[1]
-        camera_matrix = self._load_depth_intrinsics(H, W)
-        # create point cloud
-        y, x = np.meshgrid(np.arange(H), np.arange(W), indexing="ij")
-        depth = depth.astype(np.float32) / 1000.0
-        mask = depth > 0
-        x = x[mask]
-        y = y[mask]
-        depth = depth[mask]
-        # convert to 3D
-        X = (x - camera_matrix[0, 2]) * depth / camera_matrix[0, 0]
-        Y = (y - camera_matrix[1, 2]) * depth / camera_matrix[1, 1]
-        Z = depth
-        # convert to open3d point cloud
-        points = np.hstack((X.reshape(-1, 1), Y.reshape(-1, 1), Z.reshape(-1, 1)))
-        pcd = o3d.geometry.PointCloud()
-        pcd.points = o3d.utility.Vector3dVector(points)
-        colors = rgb[mask]
-        pcd.colors = o3d.utility.Vector3dVector(colors / 255.0)
-        pcd.transform(camera_pose)
-        return pcd
-    
+    # print all objects
+    for obj in hm3d_gt.gt_objects:
+        obj.__print__()
