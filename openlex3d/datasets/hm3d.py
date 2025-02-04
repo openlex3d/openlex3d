@@ -3,6 +3,7 @@ import json
 import os
 import sys
 from collections import defaultdict
+from pathlib import Path
 
 import networkx as nx
 import numpy as np
@@ -254,36 +255,78 @@ class HM3DSemanticGT:
             o3d.geometry.PointCloud: Point cloud with all objects colored by their original RGB values
             Dict[int, PanopticObjectEval]: Dictionary of all objects with object id as key
         """
-        assert len(self.gt_objects) > 0, "GT objects not loaded"
-        self.panoptic_pcd = o3d.geometry.PointCloud()
-        for obj_id, obj in self.gt_objects.items():
-            self.panoptic_pcd += obj.get_colored_pcd()
+
         return self.panoptic_pcd, self.gt_objects
     
 
+def load_dataset(name: str = None, scene: str = None, base_path: str = None) -> tuple[o3d.t.geometry.PointCloud, np.ndarray]:
+    """
+    Load the HM3DSemantics-walks ground truth point cloud and instance labels
+
+    Args:
+        name (str): Dataset name
+        scene (str): Scene ID
+        base_path (str): Base path to the dataset
+
+    Returns:
+        tuple[o3d.t.geometry.PointCloud, np.ndarray]: Ground truth point cloud and instance labels
+
+    """
+
+    assert name, "dataset name not defined, please provide a dataset name"
+    assert scene, "scene not defined, please provide a given scene identifier"
+    assert base_path, "dataset.path not defined, please add a path to the HM3DSemantics-walks dataset"
+
+    dataset_root = Path(base_path, f"{scene}")
+
+    gt_scene_info_path = dataset_root / "scene_info.json"
+    assert gt_scene_info_path.exists()
+
+    hm3d_gt = HM3DSemanticGT()
+    hm3d_gt.load_gt_graph_from_json(gt_scene_info_path)
+    assert len(hm3d_gt.gt_objects) > 0, "GT objects not loaded"
+
+    gt_instance_labels = list() 
+    points, colors = list(), list()
+
+    for obj_id, obj in hm3d_gt.gt_objects.items():
+        labels = np.full(len(obj.pcd.points), obj_id, dtype=np.uint16)
+        gt_instance_labels.append(labels)
+        points.append(np.asarray(obj.pcd.points))
+        colors.append(np.asarray(obj.pcd.colors))
+
+    gt_cloud = o3d.t.geometry.PointCloud(o3d.core.Tensor(np.concatenate(points)))
+    gt_cloud.point.colors = o3d.core.Tensor(np.concatenate(colors))
+    gt_instance_labels = np.concatenate(gt_instance_labels)
+    assert gt_instance_labels.shape[0] == len(gt_cloud.point.positions), "Length of GT instance labels does not match number of cloud points"
+
+    return gt_cloud, gt_instance_labels
 
 if __name__ == "__main__":
 
-    # for reference
+    cloud, labels = load_dataset("hm3dsem_walks", "00824-Dd4bFSTQ8gi", "/home/buechner/data/hm3dsem_walks/val")
+    o3d.visualization.draw([cloud])
+
+    # use of HM3DSem GT class for reference
     "/home/buechner/data/hm3dsem_walks/val/00824-Dd4bFSTQ8gi/scene_info.json", 
     "/home/buechner/ovsg-dataset/merged_labels/hm3d/00824/hm3dsem_00824_merged_reviewed.json"  
     
-    gt_path = sys.argv[1] # provide hm3dsem_walks GT JSON path
-    syn_path = sys.argv[2] # read in synonym labels
+    # gt_path = sys.argv[1] # provide hm3dsem_walks GT JSON path
+    # syn_path = sys.argv[2] # read in synonym labels
 
-    hm3d_gt = HM3DSemanticGT()
-    hm3d_gt.load_gt_graph_from_json(gt_path)
-    hm3d_gt.add_synoym_labels(syn_path)
+    # hm3d_gt = HM3DSemanticGT()
+    # hm3d_gt.load_gt_graph_from_json(gt_path)
+    # hm3d_gt.add_synoym_labels(syn_path)
 
-    # print all objects
-    for id, obj in hm3d_gt.gt_objects.items():
-        print(obj)
+    # # print all objects
+    # for id, obj in hm3d_gt.gt_objects.items():
+    #     print(obj)
 
-    # get rgb point cloud
-    rgb_pcd = hm3d_gt.get_gt_pointcloud()
-    o3d.visualization.draw_geometries([rgb_pcd])
+    # # get rgb point cloud
+    # rgb_pcd = hm3d_gt.get_gt_pointcloud()
+    # o3d.visualization.draw_geometries([rgb_pcd])
 
-    # get panoptic point cloud
-    panoptic_pcd = hm3d_gt.get_panoptic_pointcloud()
-    o3d.visualization.draw_geometries([panoptic_pcd])
+    # # get panoptic point cloud
+    # panoptic_pcd = hm3d_gt.get_panoptic_pointcloud()
+    # o3d.visualization.draw_geometries([panoptic_pcd])
 
