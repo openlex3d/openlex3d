@@ -19,7 +19,7 @@ COLORS = {
     DEPICTIONS: [255, 255, 0],  # yellow
     VISUALLY_SIMILAR: [255, 165, 0],  # orange
     CLUTTER: [0, 0, 255],  # blue,
-    MISSING: [220, 220, 220],  # grey,
+    MISSING: [220, 220, 220],  # blue,
     INCORRECT: [255, 0, 0],  # red
     NONE: [0, 0, 0],  # black
 }
@@ -92,14 +92,14 @@ class CategoriesHandler:
         # This is the main interface to find a match
         assert isinstance(query, str)
 
-        # Check if clutter
-        if self._check_clutter(id, query):
-            return CLUTTER
-
         # Check if any of the main categories
         for i, cat in enumerate(get_main_categories()):
             if self._match(id, query, cat):
                 return cat
+
+        # Check if clutter
+        if self._check_clutter(id, query):
+            return CLUTTER
 
         # Otherwise incorrect
         return INCORRECT
@@ -180,6 +180,7 @@ class CategoriesHandler:
         """
         # This gets the list of indices of the clutter, and uses them to check matches
         clutter_ids = self._get_labels_from_category(id, CLUTTER)
+        clutter_ids = [int(x) for x in clutter_ids]
         for id in clutter_ids:
             if self._match(id, query, SYNONYMS):
                 return True

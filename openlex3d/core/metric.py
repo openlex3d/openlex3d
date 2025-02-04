@@ -5,7 +5,6 @@ from typing import List
 from sklearn.neighbors import BallTree
 from openlex3d.core.categories import get_categories, CategoriesHandler
 
-from statistics import mode
 
 # Data association threshold for BallTree data association
 # Used to assign instance labels from the ground truth to
@@ -193,16 +192,21 @@ def intersection_over_union_topn(
             unique_ids.add(gt_id)
             continue
 
-        # Case 4: Find the mode category for the top n labels
+        # Case 4: Find the category for the top n labels
         matching_categories = []
         for label in pred_label:
             matching_category = gt_labels_handler.match(id=gt_id, query=label)
             matching_categories.append(matching_category)
 
-        mode_category = mode(matching_categories)
-        pred_categories.append(mode_category)
+        # mode_category = mode(matching_categories)
+        for category in get_categories():
+            if category in matching_categories:
+                pred_categories.append(category)
+                ious[category] += 1 / count
+                break
 
-        ious[matching_category] += 1 / count
+        # print(category, pred_label, matching_categories, gt_id)
+
         unique_ids.add(gt_id)
 
     # Compute IoU

@@ -38,7 +38,7 @@ def compute_feature_to_prompt_similarity(
 
 
 def get_label_from_logits(
-    logits: np.ndarray, text_prompt: List[str], method="max", topn="5"
+    logits: np.ndarray, text_prompt: List[str], method="max", topn=5
 ):
     """
     Convert similarity matrix to labels
