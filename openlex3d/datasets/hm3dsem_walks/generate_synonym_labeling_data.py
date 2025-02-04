@@ -22,9 +22,8 @@ from scipy.spatial.distance import cdist
 gc.collect()
 
 
+from openlex3d.datasets.hm3dsem import HM3DSemanticEvaluator
 from openlex3d.datasets.hm3dsem_walks.hm3dsem_walks import HM3DSemWalksDataset
-from openlex3d.datasets.hm3dsem_walks.hm3dsem_walks_evaluator import \
-    HM3DSemanticEvaluator
 
 
 @hydra.main(version_base=None, config_path="../../../config", config_name="synonym")
