@@ -68,7 +68,7 @@ def calculate_bounding_box_ious(bounding_boxes, json_data):
     new_json = json_data.copy()
 
     for sample in new_json["dataset"]["samples"]:
-        sample["clutter"] = []
+        sample["labels"]["image_attributes"]["clutter"] = []
 
     for id1, bbox1 in bounding_boxes.items():
         matching_id = []
@@ -88,7 +88,7 @@ def calculate_bounding_box_ious(bounding_boxes, json_data):
         if len(matching_id) > 0:
             for sample in new_json["dataset"]["samples"]:
                 if sample["object_id"] == id1:
-                    sample["clutter"] = matching_id
+                    sample["labels"]["image_attributes"]["clutter"] = matching_id
 
     return new_json
 
