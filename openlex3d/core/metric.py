@@ -172,6 +172,11 @@ def intersection_over_union_topn(
 
         # Case 1: We check if the object ID (stored as gt_label_id) exists in openlex3d_labels
         # If it doesn't, set the predicted category to 'none'
+        # print(gt_id)
+        if gt_id == -100:
+            pred_categories.append("none")
+            continue
+
         if not gt_labels_handler.has_object(gt_id):
             pred_categories.append("none")
             continue

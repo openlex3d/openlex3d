@@ -40,31 +40,32 @@ def load_dataset(config: DictConfig, load_openlex3d: bool = False):
 
     openlex3d_gt_handler = None
     if load_openlex3d:
-        assert (
-            config.openlex3d_path
-        ), "dataset.openlex3d_path not defined, check your config"
+        if config.name == "replica":
+            assert (
+                config.openlex3d_path
+            ), "dataset.openlex3d_path not defined, check your config"
 
-        gt_visible_cloud = load_openlex3d_cloud(
-            name=config.name, scene=config.scene, base_path=config.openlex3d_path
-        )
+            gt_visible_cloud = load_openlex3d_cloud(
+                name=config.name, scene=config.scene, base_path=config.openlex3d_path
+            )
 
-        # Associate points from ground truth cloud to visible ground truth cloud
-        gt_points = gt_cloud.point.positions.numpy()
-        gt_visible_points = gt_visible_cloud.point.positions.numpy()
+            # Associate points from ground truth cloud to visible ground truth cloud
+            gt_points = gt_cloud.point.positions.numpy()
+            gt_visible_points = gt_visible_cloud.point.positions.numpy()
 
-        # We use BallTree data association
-        ball_tree = BallTree(gt_points)
-        distances, indices = ball_tree.query(gt_visible_points, k=1)
-        gt_instance_labels = np.full(gt_visible_points.shape[0], -1)
+            # We use BallTree data association
+            ball_tree = BallTree(gt_points)
+            distances, indices = ball_tree.query(gt_visible_points, k=1)
+            gt_instance_labels = np.full(gt_visible_points.shape[0], -1)
 
-        mask_valid = distances.flatten() < GT_DATA_ASSOCIATION_THR
-        gt_instance_labels[mask_valid] = original_gt_labels[
-            indices.flatten()[mask_valid]
-        ]
+            mask_valid = distances.flatten() < GT_DATA_ASSOCIATION_THR
+            gt_instance_labels[mask_valid] = original_gt_labels[
+                indices.flatten()[mask_valid]
+            ]
 
-        # Reassign the outputs
-        gt_cloud = gt_visible_cloud
-        original_gt_labels = gt_instance_labels
+            # Reassign the outputs
+            gt_cloud = gt_visible_cloud
+            original_gt_labels = gt_instance_labels
 
         # Load openlex3d labels
         openlex3d_gt_handler = load_openlex3d_labels_handler(
