@@ -52,10 +52,10 @@ def main(config: DictConfig):
         )
 
         # Get predicted label from logits
-        pred_labels = get_label_from_logits(logits, prompt_list)
+        pred_labels = get_label_from_logits(logits, prompt_list, method="topn", topn=10)
 
         # Compute metric (intersection over union)
-        ious, pred_categories = metric.intersection_over_union(
+        ious, pred_categories = metric.intersection_over_union_topn(
             pred_cloud=pred_cloud,
             pred_labels=pred_labels,
             gt_cloud=gt_cloud,
