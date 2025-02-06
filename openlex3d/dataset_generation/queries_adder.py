@@ -40,6 +40,9 @@ def build_query_to_obj_mapping(data):
                     query_mapping[level][query] = []
                 query_mapping[level][query].append(obj_id)
 
+    # delete level 1 for now
+    del query_mapping["level1"]
+
     return query_mapping
 
 

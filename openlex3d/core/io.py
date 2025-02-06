@@ -154,3 +154,60 @@ def save_results(
 
     with open(str(output_results), "w") as file:
         yaml.dump(results, file, default_flow_style=False)
+
+
+def load_query_json(query_json_file):
+    """
+    Loads the query JSON file.
+    Expected format:
+    {
+        "level0": {"cushion": [65, 66], "pillow case": [66, 67]},
+        "level1": {"gingham cushion": [65, 66], "gingham pillow case": [66, 67]}
+    }
+    We'll flatten this to a list of dicts.
+    """
+    with open(query_json_file, "r") as f:
+        queries = json.load(f)
+    query_list = []
+    for level, subqueries in queries.items():
+        for query_text, obj_ids in subqueries.items():
+            query_list.append(
+                {
+                    "query_id": f"{level}_{query_text}",
+                    "query_text": query_text,
+                    "object_ids": obj_ids,
+                }
+            )
+    return query_list
+
+
+def load_raw_predictions(predictions_path, scene_name):
+    pcd_path = Path(predictions_path) / scene_name / "point_cloud.pcd"
+    masks_path = Path(predictions_path) / scene_name / "index.npy"
+    features_path = Path(predictions_path) / scene_name / "embeddings.npy"
+
+    pcd = load_pcd(str(pcd_path))
+    masks = load_mask_indices(str(masks_path))
+    features = load_features(str(features_path))
+
+    return pcd, masks, features
+
+
+def load_pcd(pcd_file):
+    """Load prediction point cloud (n_points, 3)."""
+    pcd = o3d.io.read_point_cloud(pcd_file)
+    return np.asarray(pcd.points)
+
+
+def load_mask_indices(mask_file):
+    """
+    Load the mask indices file.
+    Assume it is a file containing n_points integers.
+    """
+    masks = np.load(mask_file)
+    return masks.astype(int)
+
+
+def load_features(features_file):
+    """Load the predicted features (n_objects, n_dim)."""
+    return np.load(features_file)
