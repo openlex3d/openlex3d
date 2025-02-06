@@ -216,7 +216,7 @@ def intersection_over_union_topn(
 
     # Compute IoU
     num_objects = len(unique_ids)
-    print(num_objects)
+    # print(num_objects)
 
     for cat, hits in ious.items():
         ious[cat] = float(ious[cat] / num_objects)
