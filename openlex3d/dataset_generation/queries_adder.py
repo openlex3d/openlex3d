@@ -56,8 +56,9 @@ def process_scene_labels(input_path):
         data = json.load(f)
 
     base_name = Path(input_path).stem
-    scene_queries_output_path = Path(f"{base_name}_queries.json")
-    query_mapping_output_path = Path(f"{base_name}_query_to_object_mapping.json")
+    base_path = Path(input_path).parent
+    scene_queries_output_path = base_path / f"{base_name}_queries.json"
+    query_mapping_output_path = base_path / f"{base_name}_query_to_object_mapping.json"
 
     updated_scene_data = add_queries_to_scene(data)
 

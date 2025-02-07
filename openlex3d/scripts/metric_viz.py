@@ -3,6 +3,11 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import os
 
+from openlex3d import get_path
+from omegaconf import DictConfig
+import hydra
+from pathlib import Path
+
 
 def load_metrics(pkl_path):
     with open(pkl_path, "rb") as f:
@@ -41,8 +46,27 @@ def plot_precision_recall(metric_dict, save_dir):
             plt.close()
 
 
-if __name__ == "__main__":
-    pkl_path = "/home/kumaraditya/openlex3d/metric_dict_49a82360aa_0.01_0.9.pkl"  # Change this to your actual file path
-    save_dir = "/home/kumaraditya/openlex3d/ap_plots_49a82360aa_0.01_0.9"  # Change this to your desired folder path
-    metric_dict = load_metrics(pkl_path)
+@hydra.main(
+    version_base=None,
+    config_path=f"{get_path()}/config",
+    config_name="eval_query_config",
+)
+def main(cfg: DictConfig):
+    if cfg.eval.criteria == "clip_threshold":
+        file_save_string = f"{cfg.scene_id}_{cfg.method}_{cfg.masks.alignment_mode}_{cfg.masks.alignment_threshold}_{cfg.eval.criteria}_{cfg.eval.clip_threshold}"
+    elif cfg.eval.criteria == "top_k":
+        file_save_string = f"{cfg.scene_id}_{cfg.method}_{cfg.masks.alignment_mode}_{cfg.masks.alignment_threshold}_{cfg.eval.criteria}_{cfg.eval.top_k}"
+    else:
+        raise ValueError(
+            "Invalid evaluation criteria: choose 'clip_threshold' or 'top_k'"
+        )
+
+    pickle_path = str(Path(cfg.output_path) / f"metric_dict_{file_save_string}.pkl")
+    save_dir = str(Path(cfg.output_path) / f"ap_plots_{file_save_string}.pkl")
+
+    metric_dict = load_metrics(pickle_path)
     plot_precision_recall(metric_dict, save_dir)
+
+
+if __name__ == "__main__":
+    main()

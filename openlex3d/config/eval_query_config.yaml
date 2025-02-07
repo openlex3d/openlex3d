@@ -1,23 +1,28 @@
+# @package _global_
+
 dataset: scannetpp
 scene_id: 49a82360aa
+method: concept-graphs
 
 pred:
-  path: /data/openlex_results/openmask3d/scannetpp
+  path: /data/openlex_results/${method}/${dataset}
 
 masks:
   alignment_mode: "global" #["per_mask", "global"]
   alignment_threshold: 0.01 # dist threshold for nearest neighbor alignment
 
-output_path: /home/kumaraditya/openlex3d
+output_path: /home/kumaraditya/openlex3d/ap_experiments
 
 gt:
   base_path: /data/concept-graphs/scannetpp_openlex_v2
 
 query:
-  json_file: /home/kumaraditya/openlex3d/scannetpp_49a82360aa_merged_reviewed_query_to_object_mapping.json
+  json_file: /home/kumaraditya/openlex3d/ap_experiments/scannetpp_49a82360aa_merged_reviewed_query_to_object_mapping.json
 
 eval:
-  threshold: 0.9
+  criteria: "top_k"
+  clip_threshold: 0.5
+  top_k: 10
 
 model:
   device: "cuda"

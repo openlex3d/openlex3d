@@ -6,7 +6,7 @@ import pickle
 # Adjust these paths before running
 PCD_FILE_PATH = "/data/concept-graphs/scannetpp_openlex_v2/data/49a82360aa/scans/mesh_aligned_0.05.ply"
 MASK_DICT_PATH = (
-    "/home/kumaraditya/openlex3d/pred_masks_aligned_49a82360aa_per_mask.pkl"
+    "/home/kumaraditya/openlex3d/pred_masks_aligned_49a82360aa_global_0.01.pkl"
 )
 # ------------------------------------------------------------------------------
 
@@ -251,5 +251,5 @@ class MaskViewerObjects:
 
 
 if __name__ == "__main__":
-    viewer = MaskViewerObjects(PCD_FILE_PATH, MASK_DICT_PATH)
+    viewer = MaskViewer(PCD_FILE_PATH, MASK_DICT_PATH)
     viewer.run()

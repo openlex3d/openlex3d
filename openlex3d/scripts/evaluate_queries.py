@@ -108,12 +108,14 @@ def create_pred_instances(
     n_instances = pred_features.shape[0]
     pred_id_counter = 0
     for i in range(n_instances):
+        mask_indices = aligned_pred_mask_indices.get(i, None)
+        if mask_indices is None or len(mask_indices) < opt["min_region_sizes"]:
+            print(f"Skipping instance {i}.")
+            continue
+
         for j, qid in enumerate(query_ids):
             conf = norm_sim[i, j]
             if conf > threshold:
-                mask_indices = aligned_pred_mask_indices.get(i, None)
-                if mask_indices is None or len(mask_indices) < opt["min_region_sizes"]:
-                    continue
                 pred_inst = {
                     "uuid": str(uuid4()),
                     "pred_id": i,
@@ -129,6 +131,60 @@ def create_pred_instances(
     return pred_instances
 
 
+def create_pred_instances_top_k(
+    pred_features, aligned_pred_mask_indices, query_list, model_cfg, k=5
+):
+    """
+    For each predicted instance and for each query, compute the normalized cosine similarity
+    between the instance feature and the query text feature.
+    Select the top-k predictions per query instead of using a fixed threshold.
+    """
+    query_texts = [q["query_text"] for q in query_list]
+    query_ids = [q["query_id"] for q in query_list]
+
+    print(f"Number of queries: {len(query_ids)}")
+    print(f"Number of pred instances: {pred_features.shape[0]}")
+
+    norm_sim = compute_normalized_cosine_similarities(
+        model_cfg, pred_features, query_texts
+    )
+    print(f"Computed normalized cosine similarities: {norm_sim.shape}")
+
+    pred_instances = []
+    # n_instances = pred_features.shape[0]
+
+    # Get the top-k predictions per query
+    top_k_indices = np.argsort(-norm_sim, axis=0)[:k, :]
+    print(f"Top-k indices shape: {top_k_indices.shape}")
+
+    indices_skipped = set()
+
+    for j, qid in enumerate(query_ids):
+        for i in top_k_indices[:, j]:  # Get top-k instances for query j
+            conf = norm_sim[i, j]
+
+            mask_indices = aligned_pred_mask_indices.get(i, None)
+            if mask_indices is None or len(mask_indices) < opt["min_region_sizes"]:
+                # print(f"Skipping instance {i}.")
+                indices_skipped.add(i)
+                continue
+
+            pred_inst = {
+                "uuid": str(uuid4()),
+                "pred_id": i,
+                "label_id": 1,
+                "vert_count": len(mask_indices),
+                "confidence": conf,
+                "query_id": qid,
+                "mask_indices": mask_indices,  # already aligned indices on GT mesh
+                "matched_gt": [],
+            }
+            pred_instances.append(pred_inst)
+
+    print(f"Skipped {len(indices_skipped)} instances.")
+    return pred_instances
+
+
 # ----------------------------
 # Matching function: assign predictions to GT only if query_id matches
 # ----------------------------
@@ -136,12 +192,30 @@ def assign_instances_for_scene(scene_id, gt_instances, pred_instances):
     """
     For each predicted instance and each GT instance (of the same query and label),
     compute the intersection (using the stored mask indices) and store the matching information.
-    Returns a dictionary in the “matches” format.
+    Additionally, save statistics about the number of pred_instances matched to gt_instances
+    before and after checking for intersection, as well as the total number of GT instances per query_id.
     """
+    match_stats = {
+        "before_intersection": {},  # Stores number of pred matches per gt before intersection check
+        "after_intersection": {},  # Stores number of pred matches per gt after intersection check
+        "total_gt_instances": {},  # Stores total number of GT instances per query_id
+    }
+
+    # Count total GT instances per query_id
     for gt in gt_instances:
         gt["matched_pred"] = []
+
+        query_id = gt["query_id"]
+        match_stats["total_gt_instances"].setdefault(query_id, 0)
+        match_stats["total_gt_instances"][query_id] += 1
+
     for pred in pred_instances:
         pred["matched_gt"] = []
+
+        query_id = pred["query_id"]
+        match_stats["before_intersection"].setdefault(query_id, 0)
+        match_stats["before_intersection"][query_id] += 1
+
     for pred in pred_instances:
         for gt in gt_instances:
             if pred["query_id"] != gt["query_id"]:
@@ -157,10 +231,16 @@ def assign_instances_for_scene(scene_id, gt_instances, pred_instances):
                 pred_copy["intersection"] = intersection
                 gt["matched_pred"].append(pred_copy)
                 pred["matched_gt"].append(gt_copy)
+
+    # Track matches after intersection check
+    for gt in gt_instances:
+        query_id = gt["query_id"]
+        match_stats["after_intersection"].setdefault(query_id, len(gt["matched_pred"]))
+
     matches = {
         scene_id: {"gt": {"object": gt_instances}, "pred": {"object": pred_instances}}
     }
-    return matches
+    return matches, match_stats
 
 
 def print_matched_pred_ids_for_query(matches, query_id):
@@ -218,12 +298,10 @@ def main(cfg: DictConfig):
         raise ValueError("Invalid alignment_mode: choose 'global' or 'per_mask'")
     print("Aligned predicted masks to GT mesh.")
 
+    file_save_string = f"{cfg.scene_id}_{cfg.method}_{cfg.masks.alignment_mode}_{cfg.masks.alignment_threshold}"
     # save aligned pred mask indices with pickle
     with open(
-        str(
-            Path(cfg.output_path)
-            / f"pred_masks_aligned_{cfg.scene_id}_{cfg.masks.alignment_mode}.pkl"
-        ),
+        str(Path(cfg.output_path) / f"pred_masks_aligned_{file_save_string}.pkl"),
         "wb",
     ) as f:
         pickle.dump(aligned_pred_mask_indices, f)
@@ -232,18 +310,42 @@ def main(cfg: DictConfig):
         pickle.dump(all_gt_mask_indices, f)
 
     # Create predicted instances using the aligned mask indices
-    pred_instances = create_pred_instances(
-        pred_features,
-        aligned_pred_mask_indices,
-        query_list,
-        cfg.model,
-        threshold=cfg.eval.threshold,
-    )
+    if cfg.eval.criteria == "clip_threshold":
+        pred_instances = create_pred_instances(
+            pred_features,
+            aligned_pred_mask_indices,
+            query_list,
+            cfg.model,
+            threshold=cfg.eval.clip_threshold,
+        )
+        file_save_string = f"{cfg.scene_id}_{cfg.method}_{cfg.masks.alignment_mode}_{cfg.masks.alignment_threshold}_{cfg.eval.criteria}_{cfg.eval.clip_threshold}"
+    elif cfg.eval.criteria == "top_k":
+        pred_instances = create_pred_instances_top_k(
+            pred_features,
+            aligned_pred_mask_indices,
+            query_list,
+            cfg.model,
+            k=cfg.eval.top_k,
+        )
+        file_save_string = f"{cfg.scene_id}_{cfg.method}_{cfg.masks.alignment_mode}_{cfg.masks.alignment_threshold}_{cfg.eval.criteria}_{cfg.eval.top_k}"
+    else:
+        raise ValueError(
+            "Invalid evaluation criteria: choose 'clip_threshold' or 'top_k'"
+        )
     print("Created predicted instances.")
 
     # Build the matches dictionary for a single scene
-    matches = assign_instances_for_scene(cfg.scene_id, gt_instances, pred_instances)
+    matches, match_stats = assign_instances_for_scene(
+        cfg.scene_id, gt_instances, pred_instances
+    )
     print("Assigned instances.")
+
+    # save match stats with pickle
+    with open(
+        str(Path(cfg.output_path) / f"match_stats_{file_save_string}.pkl"),
+        "wb",
+    ) as f:
+        pickle.dump(match_stats, f)
 
     # pdb.set_trace()
 
@@ -252,17 +354,11 @@ def main(cfg: DictConfig):
     # Evaluate to compute AP
     ap_score, metric_dict = evaluate_matches(matches)
     avg_results = compute_averages(ap_score)
-    print(f"Config CLIP threshold: {cfg.eval.threshold}")
-    print(f"Mask alignment mode: {cfg.masks.alignment_mode}")
-    print(f"Mask distance threshold: {cfg.masks.alignment_threshold}")
     print("Average Precision results:", avg_results)
 
     # Save the metric_dict
     with open(
-        str(
-            Path(cfg.output_path)
-            / f"metric_dict_{cfg.scene_id}_{cfg.masks.alignment_threshold}_{cfg.eval.threshold}.pkl"
-        ),
+        str(Path(cfg.output_path) / f"metric_dict_{file_save_string}.pkl"),
         "wb",
     ) as f:
         pickle.dump(metric_dict, f)
