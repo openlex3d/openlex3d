@@ -20,6 +20,10 @@ def plot_precision_recall(metric_dict, save_dir):
             precision = metrics["precision"]
             recall = metrics["recall"]
 
+            # remove last prec and recall value
+            precision = precision[:-1]
+            recall = recall[:-1]
+
             sns.lineplot(
                 x=recall,
                 y=precision,
@@ -39,6 +43,6 @@ def plot_precision_recall(metric_dict, save_dir):
 
 if __name__ == "__main__":
     pkl_path = "/home/kumaraditya/openlex3d/metric_dict_49a82360aa_0.01_0.9.pkl"  # Change this to your actual file path
-    save_dir = "/home/kumaraditya/openlex3d/ap_plots"  # Change this to your desired folder path
+    save_dir = "/home/kumaraditya/openlex3d/ap_plots_49a82360aa_0.01_0.9"  # Change this to your desired folder path
     metric_dict = load_metrics(pkl_path)
     plot_precision_recall(metric_dict, save_dir)
