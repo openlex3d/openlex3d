@@ -216,4 +216,9 @@ def intersection_over_union_topn(
     for cat, hits in ious.items():
         ious[cat] = float(ious[cat] / num_objects)
 
-    return ious, pred_categories  # noqa
+    # Return gt to pred associations for visualization
+    # -1 means no association
+    gt_to_pred = indices
+    gt_to_pred[distances.flatten() > GT_DATA_ASSOCIATION_THR] = -1
+
+    return ious, pred_categories, gt_to_pred  # noqa
