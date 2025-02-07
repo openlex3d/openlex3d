@@ -1,5 +1,3 @@
-import json
-import os
 import numpy as np
 import open3d as o3d
 import itertools
@@ -52,11 +50,13 @@ def load_predicted_features(
     pred_cloud = downsampled_pcd
 
     # Load features
-    pred_feats_mask = np.load(feat_path) # (n_objects, D)
-    pcd_to_mask = np.load(index_file).astype(int) # (n_points,)
+    pred_feats_mask = np.load(feat_path)  # (n_objects, D)
+    pcd_to_mask = np.load(index_file).astype(int)  # (n_points,)
 
     # Make sure pcd_to_mask indices has the same length as the number of points in original cloud
-    assert len(pcd_to_mask) == N, f"Length of index.npy ({len(pcd_to_mask)}) does not match the number of points in the predicted point cloud ({N})"
+    assert (
+        len(pcd_to_mask) == N
+    ), f"Length of index.npy ({len(pcd_to_mask)}) does not match the number of points in the predicted point cloud ({N})"
 
     # Assign features to points
     pcd_to_mask = pcd_to_mask[keep_indices]
@@ -90,6 +90,7 @@ def save_results(
     dataset: str,
     scene: str,
     algorithm: str,
+    pred_labels: np.ndarray,
     reference_cloud: o3d.t.geometry.PointCloud,
     pred_categories=List[str],
     results=Dict[str, Any],
@@ -117,3 +118,7 @@ def save_results(
 
     with open(str(output_results), "w") as file:
         yaml.dump(results, file, default_flow_style=False)
+
+    # Save predicted labels for each point
+    output_labels = Path(output_path, f"{dataset}_{scene}_{algorithm}_labels.npy")
+    np.save(output_labels, pred_labels)

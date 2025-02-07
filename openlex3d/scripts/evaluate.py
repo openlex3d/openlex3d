@@ -73,6 +73,7 @@ def main(config: DictConfig):
             reference_cloud=gt_cloud,
             pred_categories=pred_categories,
             results=ious,
+            pred_labels=pred_labels,
         )
 
     elif config.evaluation.type == "caption":
