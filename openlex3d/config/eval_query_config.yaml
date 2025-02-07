@@ -5,9 +5,10 @@ pred:
   path: /data/openlex_results/openmask3d/scannetpp
 
 masks:
-  alignment_mode: "per_mask" #["per_mask", "global"]
+  alignment_mode: "global" #["per_mask", "global"]
   alignment_threshold: 0.01 # dist threshold for nearest neighbor alignment
-  output_path: /home/kumaraditya/openlex3d
+
+output_path: /home/kumaraditya/openlex3d
 
 gt:
   base_path: /data/concept-graphs/scannetpp_openlex_v2

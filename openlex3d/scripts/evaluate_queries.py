@@ -23,12 +23,12 @@ logger = logging.getLogger(__name__)
 # ----------------------------
 # Global evaluation parameters
 # ----------------------------
+MIN_REGION_SIZE = 1
 opt = {}
-# We now use 'overlap_thresholds' in place of 'overlaps' in the evaluation code.
 opt["overlap_thresholds"] = np.append(np.arange(0.5, 0.95, 0.05), 0.25)
-opt["min_region_sizes"] = 1  # adjust as needed
-opt["distance_threshes"] = [float("inf")]
-opt["distance_confs"] = [-float("inf")]
+opt["min_region_sizes"] = np.array([MIN_REGION_SIZE])
+opt["distance_threshes"] = np.array([float("inf")])
+opt["distance_confs"] = np.array([-float("inf")])
 
 # For our case we only have one semantic class:
 CLASS_LABELS = ["object"]
@@ -221,16 +221,14 @@ def main(cfg: DictConfig):
     # save aligned pred mask indices with pickle
     with open(
         str(
-            Path(cfg.masks.output_path)
+            Path(cfg.output_path)
             / f"pred_masks_aligned_{cfg.scene_id}_{cfg.masks.alignment_mode}.pkl"
         ),
         "wb",
     ) as f:
         pickle.dump(aligned_pred_mask_indices, f)
 
-    with open(
-        str(Path(cfg.masks.output_path) / f"gt_masks_{cfg.scene_id}.pkl"), "wb"
-    ) as f:
+    with open(str(Path(cfg.output_path) / f"gt_masks_{cfg.scene_id}.pkl"), "wb") as f:
         pickle.dump(all_gt_mask_indices, f)
 
     # Create predicted instances using the aligned mask indices
@@ -249,12 +247,25 @@ def main(cfg: DictConfig):
 
     # pdb.set_trace()
 
-    print_matched_pred_ids_for_query(matches, "level0_weight")
+    # print_matched_pred_ids_for_query(matches, "level0_weight")
 
     # Evaluate to compute AP
-    ap_score = evaluate_matches(matches)
+    ap_score, metric_dict = evaluate_matches(matches)
     avg_results = compute_averages(ap_score)
+    print(f"Config CLIP threshold: {cfg.eval.threshold}")
+    print(f"Mask alignment mode: {cfg.masks.alignment_mode}")
+    print(f"Mask distance threshold: {cfg.masks.alignment_threshold}")
     print("Average Precision results:", avg_results)
+
+    # Save the metric_dict
+    with open(
+        str(
+            Path(cfg.output_path)
+            / f"metric_dict_{cfg.scene_id}_{cfg.masks.alignment_threshold}_{cfg.eval.threshold}.pkl"
+        ),
+        "wb",
+    ) as f:
+        pickle.dump(metric_dict, f)
 
 
 if __name__ == "__main__":
