@@ -157,6 +157,8 @@ def intersection_over_union_topn(
 
     # Next step aims to find which category the predicted label falls into
     pred_categories = []
+    point_labels = []  # Top n labels
+    point_label_categories = []  # Top n label categories
 
     ious = {category: 0 for category in get_categories()}
 
@@ -165,6 +167,7 @@ def intersection_over_union_topn(
     for gt_id, distance, index in zip(gt_ids, distances, indices):
         # Get predicted label
         pred_label = pred_labels[index]
+        point_labels.append(pred_label)
         gt_id = gt_id.item()
 
         # Get number of points in segment
@@ -174,6 +177,7 @@ def intersection_over_union_topn(
         # If it doesn't, set the predicted category to 'none'
         if not gt_labels_handler.has_object(gt_id):
             pred_categories.append("none")
+            point_label_categories.append(["none"] * len(pred_label))
             continue
 
         # Case 2: We check if the ground truth class is a label that is not considered for evaluation  (wall, floor, ceiling)
@@ -183,11 +187,13 @@ def intersection_over_union_topn(
         )
         if sum(matches) > 0:  # this implies a match was found
             pred_categories.append("none")
+            point_label_categories.append(["bg"] * len(pred_label))
             continue
 
         # Case 3: Check if there is a valid ground truth
         if distance[0] > GT_DATA_ASSOCIATION_THR:
             pred_categories.append("missing")
+            point_label_categories.append(["missing"] * len(pred_label))
             ious["missing"] += 1 / count
             unique_ids.add(gt_id)
             continue
@@ -197,6 +203,7 @@ def intersection_over_union_topn(
         for label in pred_label:
             matching_category = gt_labels_handler.match(id=gt_id, query=label)
             matching_categories.append(matching_category)
+        point_label_categories.append(matching_categories)
 
         # mode_category = mode(matching_categories)
         for category in get_categories():
@@ -216,9 +223,9 @@ def intersection_over_union_topn(
     for cat, hits in ious.items():
         ious[cat] = float(ious[cat] / num_objects)
 
-    # Return gt to pred associations for visualization
-    # -1 means no association
-    gt_to_pred = indices
-    gt_to_pred[distances.flatten() > GT_DATA_ASSOCIATION_THR] = -1
-
-    return ious, pred_categories, gt_to_pred  # noqa
+    return (
+        ious,
+        pred_categories,
+        np.array(point_labels),
+        np.array(point_label_categories),
+    )  # noqa

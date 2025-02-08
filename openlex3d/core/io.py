@@ -90,8 +90,8 @@ def save_results(
     dataset: str,
     scene: str,
     algorithm: str,
-    pred_labels: np.ndarray,
-    gt_to_pred: np.ndarray,
+    point_labels: np.ndarray,
+    point_label_categories: np.ndarray,
     reference_cloud: o3d.t.geometry.PointCloud,
     pred_categories=List[str],
     results=Dict[str, Any],
@@ -122,10 +122,10 @@ def save_results(
 
     # Save predicted labels for each point
     output_labels = Path(output_path, f"{dataset}_{scene}_{algorithm}_labels.npy")
-    np.save(output_labels, pred_labels)
+    np.save(output_labels, point_labels)
 
-    # Save gt_to_pred array
-    output_gt_to_pred = Path(
-        output_path, f"{dataset}_{scene}_{algorithm}_gt_to_pred.npy"
+    # Save predicted category for each label of each point
+    output_point_labels = Path(
+        output_path, f"{dataset}_{scene}_{algorithm}_categories.npy"
     )
-    np.save(output_gt_to_pred, gt_to_pred)
+    np.save(output_point_labels, point_label_categories)
