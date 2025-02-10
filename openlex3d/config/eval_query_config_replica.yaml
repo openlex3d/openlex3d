@@ -1,7 +1,7 @@
 # @package _global_
 
 dataset: replica
-scene_id: office_4
+scene_id: office4
 method: concept-graphs
 
 pred:
@@ -14,10 +14,10 @@ masks:
 output_path: /home/kumaraditya/openlex3d/ap_experiments
 
 gt:
-  base_path: /data/concept-graphs/scannetpp_openlex_v2
+  base_path: /data/concept-graphs/Replica_original
 
 query:
-  json_file: /data/openlex_labels/replica/office4/gt_categories_query_to_object_mapping.json
+  json_file: /data/openlex_labels/replica/${scene_id}/gt_categories_query_to_object_mapping.json
 
 eval:
   criteria: "top_k"

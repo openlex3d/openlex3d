@@ -97,6 +97,9 @@ def read_ply(file_path: str, semantic_info_path: str):
 def load_dataset_with_obj_ids(name: str, scene: str, base_path: str):
     # Read original ground truth PLY
     # Prepare input paths
+
+    # change scene name by adding a _ between the word and number, for eg: office4 to office_4
+    scene = "_".join([scene[:-1], scene[-1]])
     dataset_root = Path(base_path, scene)
 
     semantic_info_path = dataset_root / "habitat" / "info_semantic.json"
