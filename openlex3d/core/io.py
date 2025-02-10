@@ -110,7 +110,9 @@ def save_results(
     assert cloud.point.colors.shape[0] > 0
 
     # Save
-    o3d.t.io.write_point_cloud(str(output_cloud), cloud)
+    o3d.io.write_point_cloud(str(output_cloud), cloud.to_legacy())
+
+    # o3d.visualization.draw_geometries([cloud.to_legacy()])
 
     # Prepare results yaml file
     output_results = Path(output_path, f"{dataset}_{scene}_{algorithm}_result.yaml")  # noqa
