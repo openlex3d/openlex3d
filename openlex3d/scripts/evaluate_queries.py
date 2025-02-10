@@ -6,6 +6,10 @@ from omegaconf import DictConfig
 import logging
 import pickle
 from pathlib import Path
+import json
+from collections import defaultdict
+
+import open3d as o3d
 
 from openlex3d import get_path
 from openlex3d.core.io import load_raw_predictions, load_query_json
@@ -253,6 +257,33 @@ def print_matched_pred_ids_for_query(matches, query_id):
                     print("  Matched pred:", pred["pred_id"])
 
 
+def matches_to_per_query_mask_indices(matches):
+    # Aggregate mask indices per query for both ground truth and predictions
+    mask_indices = defaultdict(lambda: {'gt': set(), 'pred': set(), 'inter': set()})
+
+    scene = list(matches.keys())[0]
+
+    for gt in matches[scene]['gt']['object']:
+        query = gt['query_id'].split('_')[1]
+        mask_indices[query]['gt'] = mask_indices[query]['gt'].union(gt['mask_indices'])
+
+    for pred in matches[scene]['pred']['object']:
+        query = pred['query_id'].split('_')[1]
+        mask_indices[query]['pred'] = mask_indices[query]['pred'].union(pred['mask_indices'])
+
+    # Compute intersections
+    for query in mask_indices:
+        mask_indices[query]['inter'] = mask_indices[query]['gt'].intersection(mask_indices[query]['pred'])
+        mask_indices[query]['gt'] = mask_indices[query]['gt'] - mask_indices[query]['inter']
+        mask_indices[query]['pred'] = mask_indices[query]['pred'] - mask_indices[query]['inter']
+
+        # Convert to list
+        for key in ['gt', 'pred', 'inter']:
+            mask_indices[query][key] = [int(i) for i in mask_indices[query][key]]
+
+    return mask_indices
+
+
 # ----------------------------
 # Main evaluation pipeline (for one scene)
 # ----------------------------
@@ -362,6 +393,27 @@ def main(cfg: DictConfig):
         "wb",
     ) as f:
         pickle.dump(metric_dict, f)
+
+    
+    # Visualization
+    viz_path = Path(cfg.output_path) / "viz"
+    viz_path.mkdir(parents=True, exist_ok=True)
+
+    query_match_indices = matches_to_per_query_mask_indices(matches)
+    with open(
+        str(viz_path / f"query_mask_indices.json"),
+        "w",
+    ) as f:
+        json.dump(query_match_indices, f)
+
+    # TODO: Scannet specific. Lazy copy of the point cloud to the viz dir.
+    # Consider using our data loaders in the viz script instead?
+    mesh_file_path = (
+        Path(cfg.gt.base_path) / "data" / cfg.scene_id / "scans" / "mesh_aligned_0.05.ply"
+    )
+    # Load mesh as a point cloud object
+    mesh_pcd = o3d.io.read_point_cloud(str(mesh_file_path))
+    o3d.io.write_point_cloud(str(viz_path / f"point_cloud.pcd"), mesh_pcd)
 
 
 if __name__ == "__main__":
