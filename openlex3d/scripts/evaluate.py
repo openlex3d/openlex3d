@@ -55,7 +55,7 @@ def main(config: DictConfig):
         pred_labels = get_label_from_logits(logits, prompt_list, method="topn", topn=10)
 
         # Compute metric (intersection over union)
-        ious, pred_categories, point_labels, point_label_categories = (
+        ious, pred_categories, point_labels, point_categories = (
             metric.intersection_over_union_topn(
                 pred_cloud=pred_cloud,
                 pred_labels=pred_labels,
@@ -76,7 +76,7 @@ def main(config: DictConfig):
             pred_categories=pred_categories,
             results=ious,
             point_labels=point_labels,
-            point_label_categories=point_label_categories,
+            point_categories=point_categories,
         )
 
     elif config.evaluation.type == "caption":

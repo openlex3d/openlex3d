@@ -91,13 +91,18 @@ def save_results(
     scene: str,
     algorithm: str,
     point_labels: np.ndarray,
-    point_label_categories: np.ndarray,
+    point_categories: np.ndarray,
     reference_cloud: o3d.t.geometry.PointCloud,
     pred_categories=List[str],
     results=Dict[str, Any],
 ):
+    output_path = Path(output_path, algorithm, dataset, scene)
+
+    # Create output path
+    output_path.mkdir(parents=True, exist_ok=True)
+
     # Prepare outputh path
-    output_cloud = Path(output_path, f"{dataset}_{scene}_{algorithm}.pcd")
+    output_cloud = Path(output_path, "point_cloud.pcd")
 
     # Map categories to colors
     colors = np.array(
@@ -115,17 +120,15 @@ def save_results(
     o3d.t.io.write_point_cloud(str(output_cloud), cloud)
 
     # Prepare results yaml file
-    output_results = Path(output_path, f"{dataset}_{scene}_{algorithm}_result.yaml")  # noqa
+    output_results = Path(output_path, "results.yaml")
 
     with open(str(output_results), "w") as file:
         yaml.dump(results, file, default_flow_style=False)
 
     # Save predicted labels for each point
-    output_labels = Path(output_path, f"{dataset}_{scene}_{algorithm}_labels.npy")
+    output_labels = Path(output_path, "point_labels.npy")
     np.save(output_labels, point_labels)
 
     # Save predicted category for each label of each point
-    output_point_labels = Path(
-        output_path, f"{dataset}_{scene}_{algorithm}_categories.npy"
-    )
-    np.save(output_point_labels, point_label_categories)
+    output_categories = Path(output_path, "point_categories.npy")
+    np.save(output_categories, point_categories)
