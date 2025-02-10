@@ -20,6 +20,7 @@ def load_dataset(name: str, scene: str, base_path: str, openlex3d_path: str):
     # create ground truth pcd
     coords = data["sampled_coords"]
     colors = data["sampled_colors"]
+    # obj_ids = data["sampled_instance_labels"]
 
     # TODO Note: We need to check if we need the visible cloud for this as well
     gt_cloud = o3d.t.geometry.PointCloud()

@@ -1,0 +1,31 @@
+# @package _global_
+
+dataset: replica
+scene_id: office_4
+method: concept-graphs
+
+pred:
+  path: /data/openlex_results/${method}/${dataset}
+
+masks:
+  alignment_mode: "global" #["per_mask", "global"]
+  alignment_threshold: 0.01 # dist threshold for nearest neighbor alignment
+
+output_path: /home/kumaraditya/openlex3d/ap_experiments
+
+gt:
+  base_path: /data/concept-graphs/scannetpp_openlex_v2
+
+query:
+  json_file: /data/openlex_labels/replica/office4/gt_categories_query_to_object_mapping.json
+
+eval:
+  criteria: "top_k"
+  clip_threshold: 0.5
+  top_k: 10
+
+model:
+  device: "cuda"
+  type: open_clip
+  backbone:  ViT-H-14 # ViT-L/14@336px # ViT-H-14
+  checkpoint: laion2b_s32b_b79k # options: 'laion2b_s32b_b79k', 'metaclip_fullcc', 'metaclip_altogether', 'dfn5b'
