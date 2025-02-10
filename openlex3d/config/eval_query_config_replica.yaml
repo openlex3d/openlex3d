@@ -1,7 +1,7 @@
 # @package _global_
 
 dataset: replica
-scenes: ["room0", "room1", "room2", "office0", "office1", "office2", "office3", "office4"]
+scenes: ["room0"]
 method: concept-graphs
 
 pred:
@@ -20,9 +20,11 @@ query:
   json_path: /data/openlex_labels
 
 eval:
+  metric: "rank" #["rank", "ap"]
   criteria: "top_k" #["top_k", "clip_threshold"]
   clip_threshold: 0.5
   top_k: 10
+  iou_threshold: 0.25 # used for rank only
 
 model:
   device: "cuda"

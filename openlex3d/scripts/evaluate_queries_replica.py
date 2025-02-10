@@ -8,6 +8,7 @@ import logging
 from openlex3d import get_path
 from openlex3d.core.io import load_raw_predictions, load_query_json_replica
 from openlex3d.core.average_precision import evaluate_matches, compute_averages
+from openlex3d.core.rank_metric import evaluate_rank
 from openlex3d.datasets.replica import load_dataset_with_obj_ids
 from openlex3d.core.transfer_masks import (
     get_pred_mask_indices_gt_aligned_global,
@@ -112,7 +113,7 @@ def create_pred_instances(
 
     norm_sim = compute_normalized_cosine_similarities(
         model_cfg, pred_features, query_texts
-    )
+    )  # (n_instances, n_queries)
 
     pred_instances = []
     n_instances = pred_features.shape[0]
@@ -124,6 +125,7 @@ def create_pred_instances(
 
         for j, qid in enumerate(query_ids):
             conf = norm_sim[i, j]
+            rank = np.argsort(-norm_sim[:, j]).tolist().index(i) + 1
             if conf > threshold:
                 pred_inst = {
                     "uuid": str(uuid4()),
@@ -131,6 +133,7 @@ def create_pred_instances(
                     "label_id": 1,
                     "vert_count": len(mask_indices),
                     "confidence": conf,
+                    "rank": rank,
                     "query_id": qid,
                     "mask_indices": mask_indices,  # already aligned indices on GT mesh
                     "matched_gt": [],
@@ -156,7 +159,7 @@ def create_pred_instances_top_k(
 
     norm_sim = compute_normalized_cosine_similarities(
         model_cfg, pred_features, query_texts
-    )
+    )  # (n_instances, n_queries)
     print(f"Computed normalized cosine similarities: {norm_sim.shape}")
 
     pred_instances = []
@@ -171,6 +174,7 @@ def create_pred_instances_top_k(
     for j, qid in enumerate(query_ids):
         for i in top_k_indices[:, j]:  # Get top-k instances for query j
             conf = norm_sim[i, j]
+            rank = np.argsort(-norm_sim[:, j]).tolist().index(i) + 1
 
             mask_indices = aligned_pred_mask_indices.get(i, None)
             if mask_indices is None or len(mask_indices) < opt["min_region_sizes"]:
@@ -184,6 +188,7 @@ def create_pred_instances_top_k(
                 "label_id": 1,
                 "vert_count": len(mask_indices),
                 "confidence": conf,
+                "rank": rank,
                 "query_id": qid,
                 "mask_indices": mask_indices,  # already aligned indices on GT mesh
                 "matched_gt": [],
@@ -311,6 +316,13 @@ def get_matches_for_scene(scene_id, cfg):
     # with open(str(Path(cfg.output_path) / f"gt_masks_{scene_id}.pkl"), "wb") as f:
     #     pickle.dump(all_gt_mask_indices, f)
 
+    if cfg.eval.metric == "rank":
+        top_k = cfg.eval.top_k
+    elif cfg.eval.metric == "ap":
+        top_k = cfg.eval.top_k
+    else:
+        raise ValueError("Invalid evaluation metric: choose 'rank' or 'ap'")
+
     # Create predicted instances using the aligned mask indices
     if cfg.eval.criteria == "clip_threshold":
         pred_instances = create_pred_instances(
@@ -327,7 +339,7 @@ def get_matches_for_scene(scene_id, cfg):
             aligned_pred_mask_indices,
             query_list,
             cfg.model,
-            k=cfg.eval.top_k,
+            k=top_k,
         )
         # file_save_string = f"{scene_id}_{cfg.method}_{cfg.masks.alignment_mode}_{cfg.masks.alignment_threshold}_{cfg.eval.criteria}_{cfg.eval.top_k}"
     else:
@@ -370,10 +382,16 @@ def main(cfg: DictConfig):
         matches, _ = get_matches_for_scene(scene_id, cfg)
         all_matches.update(matches)
 
-    # Evaluate to compute AP
-    ap_score, metric_dict = evaluate_matches(matches)
-    avg_results = compute_averages(ap_score)
-    print("Average Precision results:", avg_results)
+    # Eval metric
+    if cfg.eval.metric == "rank":
+        avg_inverse_rank, scene_query_ranks = evaluate_rank(
+            all_matches, cfg.eval.iou_threshold
+        )
+        print("Average Inverse Rank:", avg_inverse_rank)
+    elif cfg.eval.metric == "ap":
+        ap_score, metric_dict = evaluate_matches(all_matches)
+        avg_results = compute_averages(ap_score)
+        print("Average Precision results:", avg_results)
 
     # # Save the metric_dict
     # with open(
