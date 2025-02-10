@@ -4,11 +4,9 @@ from copy import deepcopy
 import hydra
 from omegaconf import DictConfig
 import logging
-import pickle
-from pathlib import Path
 
 from openlex3d import get_path
-from openlex3d.core.io import load_raw_predictions, load_query_json
+from openlex3d.core.io import load_raw_predictions, load_query_json_replica
 from openlex3d.core.average_precision import evaluate_matches, compute_averages
 from openlex3d.datasets.replica import load_dataset_with_obj_ids
 from openlex3d.core.transfer_masks import (
@@ -122,7 +120,6 @@ def create_pred_instances(
     for i in range(n_instances):
         mask_indices = aligned_pred_mask_indices.get(i, None)
         if mask_indices is None or len(mask_indices) < opt["min_region_sizes"]:
-            print(f"Skipping instance {i}.")
             continue
 
         for j, qid in enumerate(query_ids):
@@ -265,31 +262,23 @@ def print_matched_pred_ids_for_query(matches, query_id):
                     print("  Matched pred:", pred["pred_id"])
 
 
-# ----------------------------
-# Main evaluation pipeline (for one scene)
-# ----------------------------
-@hydra.main(
-    version_base=None,
-    config_path=f"{get_path()}/config",
-    config_name="eval_query_config",
-)
-def main(cfg: DictConfig):
-    print("Evaluating scene:", cfg.scene_id)
+def get_matches_for_scene(scene_id, cfg):
+    print("Evaluating scene:", scene_id)
 
     # Load prediction files
     pred_pcd, pred_mask_indices, pred_features = load_raw_predictions(
-        cfg.pred.path, cfg.scene_id
+        cfg.pred.path, scene_id
     )
     print("Loaded prediction files.")
 
     # Load ground truth: mesh and segindices
     mesh_vertices, obj_ids = load_dataset_with_obj_ids(
-        "replica", cfg.scene_id, cfg.gt.base_path
+        "replica", scene_id, cfg.gt.base_path
     )
     print("Loaded ground truth files.")
 
     # Load queries
-    query_list = load_query_json(cfg.query.json_file)
+    query_list = load_query_json_replica(cfg.query.json_path, cfg.dataset, scene_id)
     print("Loaded query file.")
 
     # Get all GT mask indices and create GT instances
@@ -310,16 +299,17 @@ def main(cfg: DictConfig):
         raise ValueError("Invalid alignment_mode: choose 'global' or 'per_mask'")
     print("Aligned predicted masks to GT mesh.")
 
-    file_save_string = f"{cfg.scene_id}_{cfg.method}_{cfg.masks.alignment_mode}_{cfg.masks.alignment_threshold}"
-    # save aligned pred mask indices with pickle
-    with open(
-        str(Path(cfg.output_path) / f"pred_masks_aligned_{file_save_string}.pkl"),
-        "wb",
-    ) as f:
-        pickle.dump(aligned_pred_mask_indices, f)
+    # file_save_string = f"{scene_id}_{cfg.method}_{cfg.masks.alignment_mode}_{cfg.masks.alignment_threshold}"
 
-    with open(str(Path(cfg.output_path) / f"gt_masks_{cfg.scene_id}.pkl"), "wb") as f:
-        pickle.dump(all_gt_mask_indices, f)
+    # # save aligned pred mask indices with pickle
+    # with open(
+    #     str(Path(cfg.output_path) / f"pred_masks_aligned_{file_save_string}.pkl"),
+    #     "wb",
+    # ) as f:
+    #     pickle.dump(aligned_pred_mask_indices, f)
+
+    # with open(str(Path(cfg.output_path) / f"gt_masks_{scene_id}.pkl"), "wb") as f:
+    #     pickle.dump(all_gt_mask_indices, f)
 
     # Create predicted instances using the aligned mask indices
     if cfg.eval.criteria == "clip_threshold":
@@ -330,7 +320,7 @@ def main(cfg: DictConfig):
             cfg.model,
             threshold=cfg.eval.clip_threshold,
         )
-        file_save_string = f"{cfg.scene_id}_{cfg.method}_{cfg.masks.alignment_mode}_{cfg.masks.alignment_threshold}_{cfg.eval.criteria}_{cfg.eval.clip_threshold}"
+        # file_save_string = f"{scene_id}_{cfg.method}_{cfg.masks.alignment_mode}_{cfg.masks.alignment_threshold}_{cfg.eval.criteria}_{cfg.eval.clip_threshold}"
     elif cfg.eval.criteria == "top_k":
         pred_instances = create_pred_instances_top_k(
             pred_features,
@@ -339,7 +329,7 @@ def main(cfg: DictConfig):
             cfg.model,
             k=cfg.eval.top_k,
         )
-        file_save_string = f"{cfg.scene_id}_{cfg.method}_{cfg.masks.alignment_mode}_{cfg.masks.alignment_threshold}_{cfg.eval.criteria}_{cfg.eval.top_k}"
+        # file_save_string = f"{scene_id}_{cfg.method}_{cfg.masks.alignment_mode}_{cfg.masks.alignment_threshold}_{cfg.eval.criteria}_{cfg.eval.top_k}"
     else:
         raise ValueError(
             "Invalid evaluation criteria: choose 'clip_threshold' or 'top_k'"
@@ -348,32 +338,49 @@ def main(cfg: DictConfig):
 
     # Build the matches dictionary for a single scene
     matches, match_stats = assign_instances_for_scene(
-        cfg.scene_id, gt_instances, pred_instances
+        scene_id, gt_instances, pred_instances
     )
     print("Assigned instances.")
 
-    # save match stats with pickle
-    with open(
-        str(Path(cfg.output_path) / f"match_stats_{file_save_string}.pkl"),
-        "wb",
-    ) as f:
-        pickle.dump(match_stats, f)
+    # # save match stats with pickle
+    # with open(
+    #     str(Path(cfg.output_path) / f"match_stats_{file_save_string}.pkl"),
+    #     "wb",
+    # ) as f:
+    #     pickle.dump(match_stats, f)
 
-    # pdb.set_trace()
+    return matches, match_stats
 
+
+# ----------------------------
+# Main evaluation pipeline (for one scene)
+# ----------------------------
+@hydra.main(
+    version_base=None,
+    config_path=f"{get_path()}/config",
+    config_name="eval_query_config_replica",
+)
+def main(cfg: DictConfig):
     # print_matched_pred_ids_for_query(matches, "level0_weight")
+
+    scenes = cfg.scenes
+    all_matches = {}
+
+    for scene_id in scenes:
+        matches, _ = get_matches_for_scene(scene_id, cfg)
+        all_matches.update(matches)
 
     # Evaluate to compute AP
     ap_score, metric_dict = evaluate_matches(matches)
     avg_results = compute_averages(ap_score)
     print("Average Precision results:", avg_results)
 
-    # Save the metric_dict
-    with open(
-        str(Path(cfg.output_path) / f"metric_dict_{file_save_string}.pkl"),
-        "wb",
-    ) as f:
-        pickle.dump(metric_dict, f)
+    # # Save the metric_dict
+    # with open(
+    #     str(Path(cfg.output_path) / f"metric_dict_{file_save_string}.pkl"),
+    #     "wb",
+    # ) as f:
+    #     pickle.dump(metric_dict, f)
 
 
 if __name__ == "__main__":
