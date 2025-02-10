@@ -1,5 +1,3 @@
-import json
-import os
 import numpy as np
 import open3d as o3d
 import itertools
@@ -52,11 +50,13 @@ def load_predicted_features(
     pred_cloud = downsampled_pcd
 
     # Load features
-    pred_feats_mask = np.load(feat_path) # (n_objects, D)
-    pcd_to_mask = np.load(index_file).astype(int) # (n_points,)
+    pred_feats_mask = np.load(feat_path)  # (n_objects, D)
+    pcd_to_mask = np.load(index_file).astype(int)  # (n_points,)
 
     # Make sure pcd_to_mask indices has the same length as the number of points in original cloud
-    assert len(pcd_to_mask) == N, f"Length of index.npy ({len(pcd_to_mask)}) does not match the number of points in the predicted point cloud ({N})"
+    assert (
+        len(pcd_to_mask) == N
+    ), f"Length of index.npy ({len(pcd_to_mask)}) does not match the number of points in the predicted point cloud ({N})"
 
     # Assign features to points
     pcd_to_mask = pcd_to_mask[keep_indices]
@@ -104,7 +104,7 @@ def save_results(
 
     # Reconstruct output cloud
     cloud = reference_cloud.clone()
-    cloud.point.colors = o3d.core.Tensor(colors / 255.0)
+    cloud.point.colors = o3d.core.Tensor(colors)
 
     assert cloud.point.positions.shape[0] > 0
     assert cloud.point.colors.shape[0] > 0

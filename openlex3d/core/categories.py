@@ -1,4 +1,6 @@
 import json
+import seaborn as sns
+import numpy as np
 
 from typing import List
 
@@ -14,14 +16,39 @@ CATEGORIES = [
     INCORRECT := "incorrect",
 ]
 
+LEGACY_COLORS = {
+    SYNONYMS: np.array([34, 139, 34]) / 255.0,  # green
+    DEPICTIONS: np.array([255, 255, 0]) / 255.0,  # yellow
+    VISUALLY_SIMILAR: np.array([255, 165, 0]) / 255.0,  # orange
+    CLUTTER: np.array([0, 0, 255]) / 255.0,  # blue,
+    MISSING: np.array([220, 220, 220]) / 255.0,  # blue,
+    INCORRECT: np.array([255, 0, 0]) / 255.0,  # red
+    NONE: np.array([0, 0, 0]) / 255.0,  # black
+}
+
+__colorblind_cmap = sns.color_palette("colorblind", n_colors=10)
+__colorblind_str = [
+    "blue",
+    "orange",
+    "green",
+    "red",
+    "pink",
+    "brown",
+    "light_pink",
+    "gray",
+    "yellow",
+    "light_blue",
+]
+__colorblind_map = {k: v for k, v in zip(__colorblind_str, __colorblind_cmap)}
+
 COLORS = {
-    SYNONYMS: [34, 139, 34],  # green
-    DEPICTIONS: [255, 255, 0],  # yellow
-    VISUALLY_SIMILAR: [255, 165, 0],  # orange
-    CLUTTER: [0, 0, 255],  # blue,
-    MISSING: [220, 220, 220],  # blue,
-    INCORRECT: [255, 0, 0],  # red
-    NONE: [0, 0, 0],  # black
+    SYNONYMS: __colorblind_map["green"],
+    DEPICTIONS: __colorblind_map["blue"],
+    VISUALLY_SIMILAR: __colorblind_map["orange"],
+    CLUTTER: __colorblind_map["brown"],
+    MISSING: __colorblind_map["gray"],
+    INCORRECT: __colorblind_map["red"],
+    NONE: np.array([1.0, 1.0, 1.0]),  # white
 }
 
 
