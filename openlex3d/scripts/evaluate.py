@@ -55,13 +55,15 @@ def main(config: DictConfig):
         pred_labels = get_label_from_logits(logits, prompt_list, method="topn", topn=5)
 
         # Compute metric (intersection over union)
-        ious, pred_categories = metric.intersection_over_union_topn(
-            pred_cloud=pred_cloud,
-            pred_labels=pred_labels,
-            gt_cloud=gt_cloud,
-            gt_ids=gt_ids,
-            gt_labels_handler=openlex3d_gt_handler,
-            excluded_labels=config.evaluation.excluded_labels,
+        ious, pred_categories, point_labels, point_label_categories = (
+            metric.intersection_over_union_topn(
+                pred_cloud=pred_cloud,
+                pred_labels=pred_labels,
+                gt_cloud=gt_cloud,
+                gt_ids=gt_ids,
+                gt_labels_handler=openlex3d_gt_handler,
+                excluded_labels=config.evaluation.excluded_labels,
+            )
         )
 
         # Export predicted clouds
@@ -73,6 +75,8 @@ def main(config: DictConfig):
             reference_cloud=gt_cloud,
             pred_categories=pred_categories,
             results=ious,
+            point_labels=point_labels,
+            point_label_categories=point_label_categories,
         )
 
     elif config.evaluation.type == "caption":
