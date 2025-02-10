@@ -29,6 +29,7 @@ def add_queries_to_scene(data):
 
 def build_query_to_obj_mapping(data):
     query_mapping = {"level0": {}, "level1": {}}
+    excluded_labels = ["wall", "floor", "ceiling", "doorframe", "ledge", "windowledge"]
 
     for sample in data["dataset"]["samples"]:
         obj_id = sample["object_id"]
@@ -36,6 +37,10 @@ def build_query_to_obj_mapping(data):
 
         for level, queries_list in queries.items():
             for query in queries_list:
+                query_space_removed = query.replace(" ", "")
+                if query_space_removed in excluded_labels:
+                    continue
+
                 if query not in query_mapping[level]:
                     query_mapping[level][query] = []
                 query_mapping[level][query].append(obj_id)
