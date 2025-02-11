@@ -58,7 +58,6 @@ class QueryViewer:
 
         self.main_pcd_name = "pcd_main"
         self.main_pcd = o3d.io.read_point_cloud(viz_path / "point_cloud.pcd")
-        import pdb; pdb.set_trace()
         self.matches = pickle.load(open(viz_path / "matches.pkl", "rb"))
         self.unique_queries = get_unique_queries(self.matches)
 
