@@ -1,5 +1,3 @@
-import json
-import os
 import numpy as np
 import open3d as o3d
 import itertools
@@ -9,6 +7,7 @@ from typing import List, Dict, Any
 from pathlib import Path
 from sklearn.neighbors import NearestNeighbors
 from openlex3d.core.categories import get_color
+from omegaconf import DictConfig
 
 PROMPT_LIST_FILE = "prompt_list.txt"
 
@@ -52,11 +51,13 @@ def load_predicted_features(
     pred_cloud = downsampled_pcd
 
     # Load features
-    pred_feats_mask = np.load(feat_path) # (n_objects, D)
-    pcd_to_mask = np.load(index_file).astype(int) # (n_points,)
+    pred_feats_mask = np.load(feat_path)  # (n_objects, D)
+    pcd_to_mask = np.load(index_file).astype(int)  # (n_points,)
 
     # Make sure pcd_to_mask indices has the same length as the number of points in original cloud
-    assert len(pcd_to_mask) == N, f"Length of index.npy ({len(pcd_to_mask)}) does not match the number of points in the predicted point cloud ({N})"
+    assert (
+        len(pcd_to_mask) == N
+    ), f"Length of index.npy ({len(pcd_to_mask)}) does not match the number of points in the predicted point cloud ({N})"
 
     # Assign features to points
     pcd_to_mask = pcd_to_mask[keep_indices]
@@ -65,14 +66,16 @@ def load_predicted_features(
     return pred_cloud, pred_feats
 
 
-def load_prompt_list(base_path: str):
+def load_prompt_list(config: DictConfig):
     """
     Read semantic classes for replica dataset
     :param gt_labels_path: path to ground truth labels txt file
     :return: class id names
     """
 
-    prompt_list_path = Path(base_path, PROMPT_LIST_FILE)
+    prompt_list_path = Path(
+        config.dataset.openlex3d_path, config.dataset.name, PROMPT_LIST_FILE
+    )
     assert prompt_list_path.exists()
 
     with open(str(prompt_list_path), "r") as f:
@@ -90,12 +93,19 @@ def save_results(
     dataset: str,
     scene: str,
     algorithm: str,
+    point_labels: np.ndarray,
+    point_categories: np.ndarray,
     reference_cloud: o3d.t.geometry.PointCloud,
     pred_categories=List[str],
     results=Dict[str, Any],
 ):
+    output_path = Path(output_path, algorithm, dataset, scene)
+
+    # Create output path
+    output_path.mkdir(parents=True, exist_ok=True)
+
     # Prepare outputh path
-    output_cloud = Path(output_path, f"{dataset}_{scene}_{algorithm}.pcd")
+    output_cloud = Path(output_path, "point_cloud.pcd")
 
     # Map categories to colors
     colors = np.array(
@@ -104,16 +114,26 @@ def save_results(
 
     # Reconstruct output cloud
     cloud = reference_cloud.clone()
-    cloud.point.colors = o3d.core.Tensor(colors / 255.0)
+    cloud.point.colors = o3d.core.Tensor(colors)
 
     assert cloud.point.positions.shape[0] > 0
     assert cloud.point.colors.shape[0] > 0
 
     # Save
-    o3d.t.io.write_point_cloud(str(output_cloud), cloud)
+    o3d.io.write_point_cloud(str(output_cloud), cloud.to_legacy())
+
+    # o3d.visualization.draw_geometries([cloud.to_legacy()])
 
     # Prepare results yaml file
-    output_results = Path(output_path, f"{dataset}_{scene}_{algorithm}_result.yaml")  # noqa
+    output_results = Path(output_path, "results.yaml")
 
     with open(str(output_results), "w") as file:
         yaml.dump(results, file, default_flow_style=False)
+
+    # Save predicted labels for each point
+    output_labels = Path(output_path, "point_labels.npy")
+    np.save(output_labels, point_labels)
+
+    # Save predicted category for each label of each point
+    output_categories = Path(output_path, "point_categories.npy")
+    np.save(output_categories, point_categories)

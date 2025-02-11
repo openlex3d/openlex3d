@@ -42,7 +42,7 @@ def main(config: DictConfig):
         )
 
         # Load prompt list
-        prompt_list = load_prompt_list(config.dataset.openlex3d_path)
+        prompt_list = load_prompt_list(config)
 
         # Evaluate predicted features
         logits = compute_feature_to_prompt_similarity(
@@ -52,16 +52,18 @@ def main(config: DictConfig):
         )
 
         # Get predicted label from logits
-        pred_labels = get_label_from_logits(logits, prompt_list, method="topn", topn=10)
+        pred_labels = get_label_from_logits(logits, prompt_list, method="topn", topn=1)
 
         # Compute metric (intersection over union)
-        ious, pred_categories = metric.intersection_over_union_topn(
-            pred_cloud=pred_cloud,
-            pred_labels=pred_labels,
-            gt_cloud=gt_cloud,
-            gt_ids=gt_ids,
-            gt_labels_handler=openlex3d_gt_handler,
-            excluded_labels=config.evaluation.excluded_labels,
+        ious, pred_categories, point_labels, point_categories = (
+            metric.intersection_over_union_topn(
+                pred_cloud=pred_cloud,
+                pred_labels=pred_labels,
+                gt_cloud=gt_cloud,
+                gt_ids=gt_ids,
+                gt_labels_handler=openlex3d_gt_handler,
+                excluded_labels=config.evaluation.excluded_labels,
+            )
         )
 
         # Export predicted clouds
@@ -73,6 +75,8 @@ def main(config: DictConfig):
             reference_cloud=gt_cloud,
             pred_categories=pred_categories,
             results=ious,
+            point_labels=point_labels,
+            point_categories=point_categories,
         )
 
     elif config.evaluation.type == "caption":
