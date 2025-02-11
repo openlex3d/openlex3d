@@ -27,8 +27,9 @@ TODO.
 For predictions, methods should use the trajectories from Nice-SLAM. A download script is available [here](https://github.com/cvg/nice-slam/blob/master/scripts/download_replica.sh).
 
 For computing the metrics, you need to download the [original Replica assets](https://github.com/facebookresearch/Replica-Dataset).
-#### Scannet++
-In order to download the data, create an account and application [here](https://kaldir.vc.in.tum.de/scannetpp/)
+#### ScanNet++
+In order to download the data, create an account and application [here](https://kaldir.vc.in.tum.de/scannetpp/).
+
 For predictions, methods should use the iPhone RGB-D images and COLMAP poses. 
 
 For computing the metrics, we use a script provided in the [ScanNet++ toolbox](https://github.com/scannetpp/scannetpp) to sample points on the ground truth mesh. Run the following and save the outputs to a folder called prepared_semantics in your main ScanNet++ data directory:
