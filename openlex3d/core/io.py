@@ -156,32 +156,7 @@ def save_results(
         yaml.dump(results, file, default_flow_style=False)
 
 
-def load_query_json(query_json_file):
-    """
-    Loads the query JSON file.
-    Expected format:
-    {
-        "level0": {"cushion": [65, 66], "pillow case": [66, 67]},
-        "level1": {"gingham cushion": [65, 66], "gingham pillow case": [66, 67]}
-    }
-    We'll flatten this to a list of dicts.
-    """
-    with open(query_json_file, "r") as f:
-        queries = json.load(f)
-    query_list = []
-    for level, subqueries in queries.items():
-        for query_text, obj_ids in subqueries.items():
-            query_list.append(
-                {
-                    "query_id": f"{level}_{query_text}",
-                    "query_text": query_text,
-                    "object_ids": obj_ids,
-                }
-            )
-    return query_list
-
-
-def load_query_json_replica(jsons_path, dataset, scene):
+def load_query_json(jsons_path, dataset, scene):
     """
     Loads the query JSON file.
     Expected format:
@@ -212,7 +187,7 @@ def load_query_json_replica(jsons_path, dataset, scene):
     return query_list
 
 
-def load_raw_predictions(predictions_path, scene_name):
+def load_all_predictions(predictions_path, scene_name):
     pcd_path = Path(predictions_path) / scene_name / "point_cloud.pcd"
     masks_path = Path(predictions_path) / scene_name / "index.npy"
     features_path = Path(predictions_path) / scene_name / "embeddings.npy"

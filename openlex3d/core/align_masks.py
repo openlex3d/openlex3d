@@ -3,7 +3,7 @@ import faiss
 
 
 def get_pred_mask_indices_gt_aligned_global(
-    pred_pcd, pred_mask_indices, mesh_vertices, threshold
+    pred_pcd, pred_mask_indices, gt_pcd, threshold
 ):
     """
     Global mode:
@@ -19,7 +19,7 @@ def get_pred_mask_indices_gt_aligned_global(
     gpu_index.add(np.ascontiguousarray(pred_pcd.astype("float32")))
     # This returns one nearest neighbor for each query point (i.e. each mesh vertex).
     distances, indices = gpu_index.search(
-        np.ascontiguousarray(mesh_vertices.astype("float32")), 1
+        np.ascontiguousarray(gt_pcd.astype("float32")), 1
     )
     distances = distances.ravel()
     nearest_pred_indices = indices.ravel()  # indices into pred_pcd
@@ -35,7 +35,7 @@ def get_pred_mask_indices_gt_aligned_global(
 
 
 def get_pred_mask_indices_gt_aligned_per_mask(
-    pred_pcd, pred_mask_indices, mesh_vertices, threshold
+    pred_pcd, pred_mask_indices, gt_pcd, threshold
 ):
     """
     Per-mask mode:
@@ -56,7 +56,7 @@ def get_pred_mask_indices_gt_aligned_per_mask(
         gpu_index = faiss.index_cpu_to_gpu(res, 0, index)
         gpu_index.add(np.ascontiguousarray(instance_points.astype("float32")))
         distances, _ = gpu_index.search(
-            np.ascontiguousarray(mesh_vertices.astype("float32")), 1
+            np.ascontiguousarray(gt_pcd.astype("float32")), 1
         )
         distances = distances.ravel()
         indices_assigned = np.nonzero(distances < threshold)[0]

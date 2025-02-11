@@ -1,30 +1,29 @@
 # @package _global_
 
-dataset: replica
-scenes: ["room0"]
-method: concept-graphs
+output_path: /home/kumaraditya/openlex3d/query_experiments
+
+dataset:
+  name: replica
+  scenes: ["room0"]
+  path: /data/concept-graphs/Replica_original
 
 pred:
-  path: /data/openlex_results/${method}/${dataset}
-
-masks:
-  alignment_mode: "global" #["per_mask", "global"]
-  alignment_threshold: 0.01 # dist threshold for nearest neighbor alignment
-
-output_path: /home/kumaraditya/openlex3d/ap_experiments
-
-gt:
-  base_path: /data/concept-graphs/Replica_original
+  method: openmask3d_duplicated
+  path: /data/openlex_results/${pred.method}/${dataset.name}
 
 query:
-  json_path: /data/openlex_labels
+  path: /data/openlex_labels
+
+masks:
+  alignment_mode: "per_mask" # ["per_mask", "global"]
+  alignment_threshold: 0.001 # dist threshold for nearest neighbor alignment
 
 eval:
-  metric: "rank" #["rank", "ap"]
-  criteria: "top_k" #["top_k", "clip_threshold"]
+  metric: "ap" # ["rank", "ap"]
+  criteria: "top_k" # ["top_k", "clip_threshold"]
   clip_threshold: 0.5
   top_k: 10
-  iou_threshold: 0.25 # used for rank only
+  iou_threshold: 0.5 # used for rank only
 
 model:
   device: "cuda"

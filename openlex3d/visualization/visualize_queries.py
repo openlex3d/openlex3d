@@ -2,12 +2,10 @@ from pathlib import Path
 import json
 import open3d as o3d
 import argparse
-import numpy as np
 import open3d.visualization.gui as gui
 
 
 class QueryViewer:
-
     def __init__(self, viz_path: Path):
         self.viz_path = viz_path
 
@@ -15,17 +13,15 @@ class QueryViewer:
         self.main_pcd = o3d.io.read_point_cloud(viz_path / "point_cloud.pcd")
         self.mask_indices = json.load(open(viz_path / "query_mask_indices.json"))
 
-
         self.current_query = None
         self.query_pcd_rgb_name = "pcd_query_rgb"
         self.query_pcd_rgb = None
         self.query_pcd_pred_gt_name = "pcd_query_pred_gt"
         self.query_pcd_pred_gt = None
 
-
     def add_geometries(self, viewer, geometry_names, geometries):
         for name, geometry in zip(geometry_names, geometries):
-                viewer.add_geometry(name, geometry)
+            viewer.add_geometry(name, geometry)
 
     def remove_geometries(self, viewer, geometry_names, geometries):
         for name in geometry_names:
@@ -47,19 +43,22 @@ class QueryViewer:
             self.remove_geometries(vis, [self.query_pcd_rgb_name], [self.query_pcd_rgb])
 
         if query_pcd_pred_gt:
-            self.add_geometries(vis, [self.query_pcd_pred_gt_name], [self.query_pcd_pred_gt])
+            self.add_geometries(
+                vis, [self.query_pcd_pred_gt_name], [self.query_pcd_pred_gt]
+            )
         else:
-            self.remove_geometries(vis, [self.query_pcd_pred_gt_name], [self.query_pcd_pred_gt])
+            self.remove_geometries(
+                vis, [self.query_pcd_pred_gt_name], [self.query_pcd_pred_gt]
+            )
 
     def update_geometries(self, viewer, geometry_names, geometries):
         self.remove_geometries(viewer, geometry_names, geometries)
         self.add_geometries(viewer, geometry_names, geometries)
 
-
     def load_query(self, query):
-        gt = self.mask_indices[query]['gt']
-        pred = self.mask_indices[query]['pred']
-        inter = self.mask_indices[query]['inter']
+        gt = self.mask_indices[query]["gt"]
+        pred = self.mask_indices[query]["pred"]
+        inter = self.mask_indices[query]["inter"]
 
         gt_pcd = self.main_pcd.select_by_index(gt)
         pred_pcd = self.main_pcd.select_by_index(pred)
@@ -73,7 +72,6 @@ class QueryViewer:
 
         self.query_pcd_pred_gt = gt_pcd + pred_pcd + inter_pcd
         self.current_query = query
-
 
     def query(self, vis):
         query = input("Enter query: ")
@@ -103,14 +101,12 @@ class QueryViewer:
         for q in queries:
             print(q)
 
-
     def register_callbacks(self, vis):
         vis.add_action("Main", self.toggle_main)
         vis.add_action("Query RGB", self.toggle_query_rgb)
         vis.add_action("Query Pred GT", self.toggle_query_pred_gt)
         vis.add_action("New Query", self.query)
         vis.add_action("List Queries", self.print_available_queries)
-
 
 
 if __name__ == "__main__":
@@ -124,8 +120,7 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    viz_path = Path(args.viz_path) 
-
+    viz_path = Path(args.viz_path)
 
     # App
     viewer = QueryViewer(viz_path)
@@ -143,11 +138,3 @@ if __name__ == "__main__":
 
     app.add_window(vis)
     app.run()
-
-
-
-
-        
-
-
-

@@ -4,13 +4,14 @@ from copy import deepcopy
 import hydra
 from omegaconf import DictConfig
 import logging
+from collections import defaultdict
 
 from openlex3d import get_path
-from openlex3d.core.io import load_raw_predictions, load_query_json_replica
+from openlex3d.core.io import load_all_predictions, load_query_json
+from openlex3d.datasets import load_dataset_with_obj_ids
 from openlex3d.core.average_precision import evaluate_matches, compute_averages
 from openlex3d.core.rank_metric import evaluate_rank
-from openlex3d.datasets.replica import load_dataset_with_obj_ids
-from openlex3d.core.transfer_masks import (
+from openlex3d.core.align_masks import (
     get_pred_mask_indices_gt_aligned_global,
     get_pred_mask_indices_gt_aligned_per_mask,
 )
@@ -267,23 +268,57 @@ def print_matched_pred_ids_for_query(matches, query_id):
                     print("  Matched pred:", pred["pred_id"])
 
 
-def get_matches_for_scene(scene_id, cfg):
+def matches_to_per_query_mask_indices(matches):
+    # Aggregate mask indices per query for both ground truth and predictions
+    mask_indices = defaultdict(lambda: {"gt": set(), "pred": set(), "inter": set()})
+
+    scene = list(matches.keys())[0]
+
+    for gt in matches[scene]["gt"]["object"]:
+        query = gt["query_id"].split("_")[1]
+        mask_indices[query]["gt"] = mask_indices[query]["gt"].union(gt["mask_indices"])
+
+    for pred in matches[scene]["pred"]["object"]:
+        query = pred["query_id"].split("_")[1]
+        mask_indices[query]["pred"] = mask_indices[query]["pred"].union(
+            pred["mask_indices"]
+        )
+
+    # Compute intersections
+    for query in mask_indices:
+        mask_indices[query]["inter"] = mask_indices[query]["gt"].intersection(
+            mask_indices[query]["pred"]
+        )
+        mask_indices[query]["gt"] = (
+            mask_indices[query]["gt"] - mask_indices[query]["inter"]
+        )
+        mask_indices[query]["pred"] = (
+            mask_indices[query]["pred"] - mask_indices[query]["inter"]
+        )
+
+        # Convert to list
+        for key in ["gt", "pred", "inter"]:
+            mask_indices[query][key] = [int(i) for i in mask_indices[query][key]]
+
+    return mask_indices
+
+
+def get_matches_for_scene(cfg, scene_id):
     print("Evaluating scene:", scene_id)
 
     # Load prediction files
-    pred_pcd, pred_mask_indices, pred_features = load_raw_predictions(
+    pred_pcd, pred_mask_indices, pred_features = load_all_predictions(
         cfg.pred.path, scene_id
     )
     print("Loaded prediction files.")
 
     # Load ground truth: mesh and segindices
-    mesh_vertices, obj_ids = load_dataset_with_obj_ids(
-        "replica", scene_id, cfg.gt.base_path
-    )
+    gt_pcd, obj_ids = load_dataset_with_obj_ids(cfg.dataset, scene_id)
+    gt_pcd_points = gt_pcd.point.positions.numpy()
     print("Loaded ground truth files.")
 
     # Load queries
-    query_list = load_query_json_replica(cfg.query.json_path, cfg.dataset, scene_id)
+    query_list = load_query_json(cfg.query.json_path, cfg.dataset.name, scene_id)
     print("Loaded query file.")
 
     # Get all GT mask indices and create GT instances
@@ -294,11 +329,11 @@ def get_matches_for_scene(scene_id, cfg):
     # Align predicted masks to the GT mesh using the chosen mode:
     if cfg.masks.alignment_mode == "global":
         aligned_pred_mask_indices = get_pred_mask_indices_gt_aligned_global(
-            pred_pcd, pred_mask_indices, mesh_vertices, cfg.masks.alignment_threshold
+            pred_pcd, pred_mask_indices, gt_pcd_points, cfg.masks.alignment_threshold
         )
     elif cfg.masks.alignment_mode == "per_mask":
         aligned_pred_mask_indices = get_pred_mask_indices_gt_aligned_per_mask(
-            pred_pcd, pred_mask_indices, mesh_vertices, cfg.masks.alignment_threshold
+            pred_pcd, pred_mask_indices, gt_pcd_points, cfg.masks.alignment_threshold
         )
     else:
         raise ValueError("Invalid alignment_mode: choose 'global' or 'per_mask'")
@@ -379,7 +414,7 @@ def main(cfg: DictConfig):
     all_matches = {}
 
     for scene_id in scenes:
-        matches, _ = get_matches_for_scene(scene_id, cfg)
+        matches, _ = get_matches_for_scene(cfg, scene_id)
         all_matches.update(matches)
 
     # Eval metric

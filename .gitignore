@@ -166,4 +166,4 @@ cython_debug/
 
 # Other
 outputs/
-ap_experiments/
+query_experiments/

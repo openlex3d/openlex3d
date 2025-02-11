@@ -137,18 +137,35 @@ def read_ply_with_obj_ids(file_path: str, semantic_info_path: str):
         [plydata["vertex"]["x"], plydata["vertex"]["y"], plydata["vertex"]["z"]]
     ).T
 
+    colors = (
+        np.vstack(
+            [
+                plydata["vertex"]["red"],
+                plydata["vertex"]["green"],
+                plydata["vertex"]["blue"],
+            ]
+        ).T.astype(np.float32)
+        / 255.0
+    )
+
     # Extract object_id and normalize it to use as color
     face_vertices = plydata["face"]["vertex_indices"]
     object_ids = plydata["face"]["object_id"]
     vertices1 = []
     object_ids1 = []
+    colors1 = []
     for i, face in enumerate(face_vertices):
         vertices1.append(vertices[face])
         object_ids1.append(np.repeat(object_ids[i], len(face)))
+        colors1.append(colors[face])
     vertices1 = np.vstack(vertices1)
     object_ids1 = np.hstack(object_ids1)
+    colors1 = np.vstack(colors1)
 
-    return vertices1, object_ids1
+    cloud = o3d.t.geometry.PointCloud(vertices1)
+    cloud.point.colors = o3d.core.Tensor(colors1)
+
+    return cloud, object_ids1
 
 
 if __name__ == "__main__":
