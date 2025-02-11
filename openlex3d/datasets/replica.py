@@ -109,11 +109,11 @@ def load_dataset_with_obj_ids(name: str, scene: str, base_path: str):
     assert ply_path.exists()
 
     # Load cloud
-    vertices, obj_ids = read_ply_with_obj_ids(str(ply_path), str(semantic_info_path))
-    assert vertices.shape[0] > 0
+    gt_cloud, obj_ids = read_ply_with_obj_ids(str(ply_path), str(semantic_info_path))
+    assert gt_cloud.point.positions.shape[0] > 0
     assert obj_ids.shape[0] > 0
 
-    return vertices, obj_ids
+    return gt_cloud, obj_ids
 
 
 def read_ply_with_obj_ids(file_path: str, semantic_info_path: str):

@@ -4,18 +4,14 @@ from copy import deepcopy
 import hydra
 from omegaconf import DictConfig
 import logging
-import pickle
-from pathlib import Path
-import json
 from collections import defaultdict
 
-import open3d as o3d
-
 from openlex3d import get_path
-from openlex3d.core.io import load_raw_predictions, load_query_json
+from openlex3d.core.io import load_all_predictions, load_query_json
+from openlex3d.datasets import load_dataset_with_obj_ids
 from openlex3d.core.average_precision import evaluate_matches, compute_averages
-from openlex3d.datasets.scannetpp import load_dataset_gt_files
-from openlex3d.core.transfer_masks import (
+from openlex3d.core.rank_metric import evaluate_rank
+from openlex3d.core.align_masks import (
     get_pred_mask_indices_gt_aligned_global,
     get_pred_mask_indices_gt_aligned_per_mask,
 )
@@ -44,25 +40,20 @@ LABEL_TO_ID = {"object": 1}
 # ----------------------------
 # Get All GT Mask Indices
 # ----------------------------
-def get_all_gt_mask_indices(seg_indices, seg_anno):
-    """
-    Reads segmentation annotations and returns a dictionary mapping each object id to the
-    corresponding indices (positions) in the mesh (seg_indices) where the object is present.
-    """
+def get_all_gt_mask_indices(obj_ids_pcd):
     gt_dict = {}
-    obj_ids, _, segments = seg_anno
+    obj_ids = np.unique(obj_ids_pcd)
     if obj_ids is None:
         raise ValueError("Segmentation annotations could not be loaded.")
-    for i, obj_req in enumerate(obj_ids):
-        seg_inds_for_obj = segments[i]
-        gt_mask = np.isin(seg_indices, seg_inds_for_obj)
+    for obj_req in obj_ids:
+        gt_mask = obj_ids_pcd == obj_req
         mask_indices = np.nonzero(gt_mask)[0]
         gt_dict[int(obj_req)] = mask_indices
     return gt_dict
 
 
 # ----------------------------
-# Updated: Create GT Instances (using the precomputed dictionary)
+# Create GT Instances
 # ----------------------------
 def create_gt_instances(all_gt_mask_indices, query_list):
     """
@@ -91,7 +82,7 @@ def create_gt_instances(all_gt_mask_indices, query_list):
 
 
 # ----------------------------
-# Updated: Create Predicted Instances (using aligned indices)
+# Create Predicted Instances (using aligned pointcloud indices)
 # ----------------------------
 def create_pred_instances(
     pred_features, aligned_pred_mask_indices, query_list, model_cfg, threshold=0.6
@@ -106,19 +97,21 @@ def create_pred_instances(
 
     norm_sim = compute_normalized_cosine_similarities(
         model_cfg, pred_features, query_texts
-    )
+    )  # (n_instances, n_queries)
 
     pred_instances = []
     n_instances = pred_features.shape[0]
-    pred_id_counter = 0
+    indices_skipped = set()
+
     for i in range(n_instances):
         mask_indices = aligned_pred_mask_indices.get(i, None)
         if mask_indices is None or len(mask_indices) < opt["min_region_sizes"]:
-            print(f"Skipping instance {i}.")
+            indices_skipped.add(i)
             continue
 
         for j, qid in enumerate(query_ids):
             conf = norm_sim[i, j]
+            rank = np.argsort(-norm_sim[:, j]).tolist().index(i) + 1
             if conf > threshold:
                 pred_inst = {
                     "uuid": str(uuid4()),
@@ -126,12 +119,14 @@ def create_pred_instances(
                     "label_id": 1,
                     "vert_count": len(mask_indices),
                     "confidence": conf,
+                    "rank": rank,
                     "query_id": qid,
                     "mask_indices": mask_indices,  # already aligned indices on GT mesh
                     "matched_gt": [],
                 }
                 pred_instances.append(pred_inst)
-                pred_id_counter += 1
+
+    print(f"Skipped {len(indices_skipped)} instances.")
     return pred_instances
 
 
@@ -151,7 +146,7 @@ def create_pred_instances_top_k(
 
     norm_sim = compute_normalized_cosine_similarities(
         model_cfg, pred_features, query_texts
-    )
+    )  # (n_instances, n_queries)
     print(f"Computed normalized cosine similarities: {norm_sim.shape}")
 
     pred_instances = []
@@ -166,6 +161,7 @@ def create_pred_instances_top_k(
     for j, qid in enumerate(query_ids):
         for i in top_k_indices[:, j]:  # Get top-k instances for query j
             conf = norm_sim[i, j]
+            rank = np.argsort(-norm_sim[:, j]).tolist().index(i) + 1
 
             mask_indices = aligned_pred_mask_indices.get(i, None)
             if mask_indices is None or len(mask_indices) < opt["min_region_sizes"]:
@@ -179,6 +175,7 @@ def create_pred_instances_top_k(
                 "label_id": 1,
                 "vert_count": len(mask_indices),
                 "confidence": conf,
+                "rank": rank,
                 "query_id": qid,
                 "mask_indices": mask_indices,  # already aligned indices on GT mesh
                 "matched_gt": [],
@@ -194,7 +191,7 @@ def create_pred_instances_top_k(
 # ----------------------------
 def assign_instances_for_scene(scene_id, gt_instances, pred_instances):
     """
-    For each predicted instance and each GT instance (of the same query and label),
+    For each predicted instance and each GT instance (of the same query),
     compute the intersection (using the stored mask indices) and store the matching information.
     Additionally, save statistics about the number of pred_instances matched to gt_instances
     before and after checking for intersection, as well as the total number of GT instances per query_id.
@@ -247,6 +244,9 @@ def assign_instances_for_scene(scene_id, gt_instances, pred_instances):
     return matches, match_stats
 
 
+# ----------------------------
+# Helper function: Print matched pred_ids for a specific query_id
+# ----------------------------
 def print_matched_pred_ids_for_query(matches, query_id):
     for m in matches:
         gt_instances = matches[m]["gt"]["object"]
@@ -257,6 +257,9 @@ def print_matched_pred_ids_for_query(matches, query_id):
                     print("  Matched pred:", pred["pred_id"])
 
 
+# ----------------------------
+# Helper function for viz: Convert matches to per-query mask indices
+# ----------------------------
 def matches_to_per_query_mask_indices(matches):
     # Aggregate mask indices per query for both ground truth and predictions
     mask_indices = defaultdict(lambda: {"gt": set(), "pred": set(), "inter": set()})
@@ -293,60 +296,50 @@ def matches_to_per_query_mask_indices(matches):
 
 
 # ----------------------------
-# Main evaluation pipeline (for one scene)
+# Main evaluation function for a single scene
 # ----------------------------
-@hydra.main(
-    version_base=None,
-    config_path=f"{get_path()}/config",
-    config_name="eval_query_config",
-)
-def main(cfg: DictConfig):
-    print("Evaluating scene:", cfg.scene_id)
+def get_matches_for_scene(cfg, scene_id):
+    print("Evaluating scene:", scene_id)
 
     # Load prediction files
-    pred_pcd, pred_mask_indices, pred_features = load_raw_predictions(
-        cfg.pred.path, cfg.scene_id
+    pred_pcd, pred_mask_indices, pred_features = load_all_predictions(
+        cfg.pred.path, scene_id
     )
     print("Loaded prediction files.")
 
     # Load ground truth: mesh and segindices
-    mesh_vertices, seg_indices, seg_anno = load_dataset_gt_files(
-        cfg.gt.base_path, cfg.scene_id
-    )
+    gt_pcd, obj_ids = load_dataset_with_obj_ids(cfg.dataset, scene_id)
+    gt_pcd_points = gt_pcd.point.positions.numpy()
     print("Loaded ground truth files.")
 
     # Load queries
-    query_list = load_query_json(cfg.query.json_file)
+    query_list = load_query_json(cfg.query.path, cfg.dataset.name, scene_id)
     print("Loaded query file.")
 
     # Get all GT mask indices and create GT instances
-    all_gt_mask_indices = get_all_gt_mask_indices(seg_indices, seg_anno)
+    all_gt_mask_indices = get_all_gt_mask_indices(obj_ids)
     gt_instances = create_gt_instances(all_gt_mask_indices, query_list)
     print("Created GT instances.")
 
     # Align predicted masks to the GT mesh using the chosen mode:
     if cfg.masks.alignment_mode == "global":
         aligned_pred_mask_indices = get_pred_mask_indices_gt_aligned_global(
-            pred_pcd, pred_mask_indices, mesh_vertices, cfg.masks.alignment_threshold
+            pred_pcd, pred_mask_indices, gt_pcd_points, cfg.masks.alignment_threshold
         )
     elif cfg.masks.alignment_mode == "per_mask":
         aligned_pred_mask_indices = get_pred_mask_indices_gt_aligned_per_mask(
-            pred_pcd, pred_mask_indices, mesh_vertices, cfg.masks.alignment_threshold
+            pred_pcd, pred_mask_indices, gt_pcd_points, cfg.masks.alignment_threshold
         )
     else:
         raise ValueError("Invalid alignment_mode: choose 'global' or 'per_mask'")
     print("Aligned predicted masks to GT mesh.")
 
-    file_save_string = f"{cfg.scene_id}_{cfg.method}_{cfg.masks.alignment_mode}_{cfg.masks.alignment_threshold}"
-    # save aligned pred mask indices with pickle
-    with open(
-        str(Path(cfg.output_path) / f"pred_masks_aligned_{file_save_string}.pkl"),
-        "wb",
-    ) as f:
-        pickle.dump(aligned_pred_mask_indices, f)
-
-    with open(str(Path(cfg.output_path) / f"gt_masks_{cfg.scene_id}.pkl"), "wb") as f:
-        pickle.dump(all_gt_mask_indices, f)
+    if cfg.eval.metric == "rank":
+        top_k = cfg.eval.top_k  # NOTE: Can be changed later
+    elif cfg.eval.metric == "ap":
+        top_k = cfg.eval.top_k
+    else:
+        raise ValueError("Invalid evaluation metric: choose 'rank' or 'ap'")
 
     # Create predicted instances using the aligned mask indices
     if cfg.eval.criteria == "clip_threshold":
@@ -357,16 +350,14 @@ def main(cfg: DictConfig):
             cfg.model,
             threshold=cfg.eval.clip_threshold,
         )
-        file_save_string = f"{cfg.scene_id}_{cfg.method}_{cfg.masks.alignment_mode}_{cfg.masks.alignment_threshold}_{cfg.eval.criteria}_{cfg.eval.clip_threshold}"
     elif cfg.eval.criteria == "top_k":
         pred_instances = create_pred_instances_top_k(
             pred_features,
             aligned_pred_mask_indices,
             query_list,
             cfg.model,
-            k=cfg.eval.top_k,
+            k=top_k,
         )
-        file_save_string = f"{cfg.scene_id}_{cfg.method}_{cfg.masks.alignment_mode}_{cfg.masks.alignment_threshold}_{cfg.eval.criteria}_{cfg.eval.top_k}"
     else:
         raise ValueError(
             "Invalid evaluation criteria: choose 'clip_threshold' or 'top_k'"
@@ -375,56 +366,62 @@ def main(cfg: DictConfig):
 
     # Build the matches dictionary for a single scene
     matches, match_stats = assign_instances_for_scene(
-        cfg.scene_id, gt_instances, pred_instances
+        scene_id, gt_instances, pred_instances
     )
     print("Assigned instances.")
 
-    # save match stats with pickle
-    with open(
-        str(Path(cfg.output_path) / f"match_stats_{file_save_string}.pkl"),
-        "wb",
-    ) as f:
-        pickle.dump(match_stats, f)
+    # # Get mask indices per query for both ground truth and predictions
+    # query_match_indices = matches_to_per_query_mask_indices(matches)
+    # print("Converted matches to per-query mask indices.")
 
-    # pdb.set_trace()
+    # # For visualization
+    # viz_path = (
+    #     Path(cfg.output_path)
+    #     / "viz"
+    #     / cfg.dataset.name
+    #     / scene_id
+    #     / f"{cfg.pred.method}_{cfg.masks.alignment_mode}_{cfg.masks.alignment_threshold}_{cfg.eval.criteria}_{cfg.eval.clip_threshold}_{cfg.eval.top_k}"
+    # )
+    # viz_path.mkdir(parents=True, exist_ok=True)
+    # with open(
+    #     str(viz_path / "query_mask_indices.json"),
+    #     "w",
+    # ) as f:
+    #     json.dump(query_match_indices, f)
+    # o3d.t.io.write_point_cloud(str(viz_path / "point_cloud.pcd"), gt_pcd)
 
+    # # Print matched pred_ids for a specific query_id
     # print_matched_pred_ids_for_query(matches, "level0_weight")
 
-    # Evaluate to compute AP
-    ap_score, metric_dict = evaluate_matches(matches)
-    avg_results = compute_averages(ap_score)
-    print("Average Precision results:", avg_results)
+    return matches, match_stats
 
-    # Save the metric_dict
-    with open(
-        str(Path(cfg.output_path) / f"metric_dict_{file_save_string}.pkl"),
-        "wb",
-    ) as f:
-        pickle.dump(metric_dict, f)
 
-    # Visualization
-    viz_path = Path(cfg.output_path) / "viz"
-    viz_path.mkdir(parents=True, exist_ok=True)
+# ----------------------------
+# Main evaluation pipeline
+# ----------------------------
+@hydra.main(
+    version_base=None,
+    config_path=f"{get_path()}/config",
+    config_name="eval_query_config",
+)
+def main(cfg: DictConfig):
+    scenes = cfg.dataset.scenes
+    all_matches = {}
 
-    query_match_indices = matches_to_per_query_mask_indices(matches)
-    with open(
-        str(viz_path / "query_mask_indices.json"),
-        "w",
-    ) as f:
-        json.dump(query_match_indices, f)
+    for scene_id in scenes:
+        matches, _ = get_matches_for_scene(cfg, scene_id)
+        all_matches.update(matches)
 
-    # TODO: Scannet specific. Lazy copy of the point cloud to the viz dir.
-    # Consider using our data loaders in the viz script instead?
-    mesh_file_path = (
-        Path(cfg.gt.base_path)
-        / "data"
-        / cfg.scene_id
-        / "scans"
-        / "mesh_aligned_0.05.ply"
-    )
-    # Load mesh as a point cloud object
-    mesh_pcd = o3d.io.read_point_cloud(str(mesh_file_path))
-    o3d.io.write_point_cloud(str(viz_path / "point_cloud.pcd"), mesh_pcd)
+    # Eval metric
+    if cfg.eval.metric == "rank":
+        avg_inverse_rank, scene_query_ranks = evaluate_rank(
+            all_matches, cfg.eval.iou_threshold
+        )
+        print("Average Inverse Rank:", avg_inverse_rank)
+    elif cfg.eval.metric == "ap":
+        ap_score, metric_dict = evaluate_matches(all_matches)
+        avg_results = compute_averages(ap_score)
+        print("Average Precision results:", avg_results)
 
 
 if __name__ == "__main__":

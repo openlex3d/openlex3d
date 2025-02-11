@@ -101,20 +101,20 @@ def load_openlex3d_labels_handler(name: str, scene: str, base_path: str):
 
 def load_dataset_with_obj_ids(config: DictConfig, scene: str):
     dataset_name = config.name
-    logger.info(f"Loading dataset [{config.name}]," f" scene [{scene}]")
+    logger.info(f"Loading dataset {config.name}, scene {scene}")
 
     assert config.name, "dataset.name not defined, check your config"
     assert scene, "dataset.scene not defined, check your config"
     assert config.path, "dataset.path not defined, check your config"
 
     dataset_module = import_module(f"openlex3d.datasets.{dataset_name}")
-    pcd_points, obj_ids = dataset_module.load_dataset_with_obj_ids(
+    pcd, obj_ids = dataset_module.load_dataset_with_obj_ids(
         name=config.name,
         scene=scene,
         base_path=config.path,
     )
 
-    assert isinstance(pcd_points, np.ndarray)
+    assert isinstance(pcd, o3d.t.geometry.PointCloud)
     assert isinstance(obj_ids, np.ndarray)
 
-    return pcd_points, obj_ids
+    return pcd, obj_ids
