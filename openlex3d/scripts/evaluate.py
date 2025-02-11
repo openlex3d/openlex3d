@@ -42,7 +42,7 @@ def main(config: DictConfig):
         )
 
         # Load prompt list
-        prompt_list = load_prompt_list(config.dataset.openlex3d_path)
+        prompt_list = load_prompt_list(config)
 
         # Evaluate predicted features
         logits = compute_feature_to_prompt_similarity(
@@ -52,7 +52,7 @@ def main(config: DictConfig):
         )
 
         # Get predicted label from logits
-        pred_labels = get_label_from_logits(logits, prompt_list, method="topn", topn=5)
+        pred_labels = get_label_from_logits(logits, prompt_list, method="topn", topn=1)
 
         # Compute metric (intersection over union)
         ious, pred_categories, point_labels, point_categories = (

@@ -7,6 +7,7 @@ from typing import List, Dict, Any
 from pathlib import Path
 from sklearn.neighbors import NearestNeighbors
 from openlex3d.core.categories import get_color
+from omegaconf import DictConfig
 
 PROMPT_LIST_FILE = "prompt_list.txt"
 
@@ -65,14 +66,16 @@ def load_predicted_features(
     return pred_cloud, pred_feats
 
 
-def load_prompt_list(base_path: str):
+def load_prompt_list(config: DictConfig):
     """
     Read semantic classes for replica dataset
     :param gt_labels_path: path to ground truth labels txt file
     :return: class id names
     """
 
-    prompt_list_path = Path(base_path, PROMPT_LIST_FILE)
+    prompt_list_path = Path(
+        config.dataset.openlex3d_path, config.dataset.name, PROMPT_LIST_FILE
+    )
     assert prompt_list_path.exists()
 
     with open(str(prompt_list_path), "r") as f:

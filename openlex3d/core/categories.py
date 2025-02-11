@@ -45,7 +45,7 @@ COLORS = {
     SYNONYMS: __colorblind_map["green"],
     DEPICTIONS: __colorblind_map["blue"],
     VISUALLY_SIMILAR: __colorblind_map["orange"],
-    CLUTTER: __colorblind_map["brown"],
+    CLUTTER: __colorblind_map["pink"],
     MISSING: __colorblind_map["gray"],
     INCORRECT: __colorblind_map["red"],
     NONE: np.array([1.0, 1.0, 1.0]),  # white

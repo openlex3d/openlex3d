@@ -41,7 +41,9 @@ def load_dataset(config: DictConfig, load_openlex3d: bool = False):
     openlex3d_gt_handler = None
     if load_openlex3d:
         # Load 'visible' point cloud (if exists)
-        gt_cloud, original_gt_labels = load_openlex3d_visible_cloud()
+        gt_cloud, original_gt_labels = load_openlex3d_visible_cloud(
+            config, gt_cloud, original_gt_labels
+        )
 
         # Load openlex3d labels
         openlex3d_gt_handler = load_openlex3d_labels_handler(
