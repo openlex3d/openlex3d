@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+EXCLUDED_LABELS = ["wall", "floor", "ceiling", "doorframe", "ledge", "windowledge"]
+
 
 def add_queries_to_scene(data):
     for sample in data["dataset"]["samples"]:
@@ -29,7 +31,6 @@ def add_queries_to_scene(data):
 
 def build_query_to_obj_mapping(data):
     query_mapping = {"level0": {}, "level1": {}}
-    excluded_labels = ["wall", "floor", "ceiling", "doorframe", "ledge", "windowledge"]
 
     for sample in data["dataset"]["samples"]:
         obj_id = sample["object_id"]
@@ -38,15 +39,12 @@ def build_query_to_obj_mapping(data):
         for level, queries_list in queries.items():
             for query in queries_list:
                 query_space_removed = query.replace(" ", "")
-                if query_space_removed in excluded_labels:
+                if query_space_removed in EXCLUDED_LABELS:
                     continue
 
                 if query not in query_mapping[level]:
                     query_mapping[level][query] = []
                 query_mapping[level][query].append(obj_id)
-
-    # delete level 1 for now
-    del query_mapping["level1"]
 
     return query_mapping
 
@@ -62,7 +60,7 @@ def process_scene_labels(input_path):
 
     base_name = Path(input_path).stem
     base_path = Path(input_path).parent
-    scene_queries_output_path = base_path / f"{base_name}_queries.json"
+    scene_queries_output_path = base_path / f"{base_name}_w_queries.json"
     query_mapping_output_path = base_path / f"{base_name}_query_to_object_mapping.json"
 
     updated_scene_data = add_queries_to_scene(data)
@@ -72,9 +70,20 @@ def process_scene_labels(input_path):
     save_json(updated_scene_data, scene_queries_output_path)
     save_json(query_mapping, query_mapping_output_path)
 
-    print(
-        f"Processed data saved to {scene_queries_output_path} and {query_mapping_output_path}"
-    )
+    return
+
+
+def process_openlex_labels(openlex_labels_folder):
+    openlex_labels_folder = Path(openlex_labels_folder)
+    dataset_folders = [f for f in openlex_labels_folder.iterdir() if f.is_dir()]
+
+    for dataset_folder in dataset_folders:
+        scene_folders = [f for f in dataset_folder.iterdir() if f.is_dir()]
+        for scene_folder in scene_folders:
+            scene_labels_file = scene_folder / "gt_categories.json"
+            process_scene_labels(scene_labels_file)
+
+    return
 
 
 if __name__ == "__main__":
@@ -84,11 +93,11 @@ if __name__ == "__main__":
         description="Process scene labels and generate query mappings."
     )
     parser.add_argument(
-        "--scene_labels_file",
+        "--openlex_labels_folder",
         required=True,
         type=str,
         help="Path to the input JSON file.",
     )
 
     args = parser.parse_args()
-    process_scene_labels(args.scene_labels_file)
+    process_openlex_labels(args.openlex_labels_folder)
