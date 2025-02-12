@@ -316,7 +316,9 @@ def get_matches_for_scene(cfg, scene_id):
         cfg.masks, pred_pcd, pred_mask_indices, gt_pcd_points
     )
 
-    logger.info(f"Creating predicted instances with criteria {cfg.eval.criteria}")
+    logger.info(
+        f"Creating predicted instances with criteria {cfg.eval.criteria} ({cfg.eval.clip_threshold} or {cfg.eval.top_k})"
+    )
     pred_instances = create_pred_instances(
         cfg.eval, pred_features, aligned_pred_mask_indices, query_list, cfg.model
     )
@@ -384,11 +386,33 @@ def main(cfg: DictConfig):
         avg_inverse_rank, scene_query_ranks = evaluate_rank(
             all_matches, cfg.eval.iou_threshold
         )
+        logger.info(f"IoU used: {cfg.eval.iou_threshold}")
         logger.info(f"Average inverse rank: {avg_inverse_rank}")
+
+        ranks_output_path = (
+            Path(cfg.output_path)
+            / "rank_metric"
+            / cfg.dataset.name
+            / f"{cfg.pred.method}_{cfg.masks.alignment_mode}_{cfg.masks.alignment_threshold}_{cfg.eval.top_k}_{cfg.eval.iou_threshold}"
+        )
+        ranks_output_path.mkdir(parents=True, exist_ok=True)
+        pickle.dump(
+            scene_query_ranks, open(ranks_output_path / "query_ranks.pkl", "wb")
+        )
+
     elif cfg.eval.metric == "ap":
         ap_score, metric_dict = evaluate_matches(all_matches)
         avg_results = compute_averages(ap_score)
         logger.info(f"Average Precision score: {avg_results}")
+
+        ap_output_path = (
+            Path(cfg.output_path)
+            / "ap_metric"
+            / cfg.dataset.name
+            / f"{cfg.pred.method}_{cfg.masks.alignment_mode}_{cfg.masks.alignment_threshold}_{cfg.eval.criteria}_{cfg.eval.clip_threshold}_{cfg.eval.top_k}"
+        )
+        ap_output_path.mkdir(parents=True, exist_ok=True)
+        pickle.dump(metric_dict, open(ap_output_path / "ap_metrics.pkl", "wb"))
 
 
 if __name__ == "__main__":

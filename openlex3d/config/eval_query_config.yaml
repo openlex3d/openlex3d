@@ -3,12 +3,12 @@
 output_path: /home/kumaraditya/openlex3d/query_experiments
 hydra:
   run:
-    dir: ${output_path}/logs/${dataset.name}/${now:%Y-%m-%d-%H-%M-%S}
+    dir: ${output_path}/logs/${eval.metric}/${dataset.name}/${now:%Y-%m-%d-%H-%M-%S}
 
 dataset:
-  name: scannetpp
-  scenes: ["0a76e06478"]
-  path: /data/concept-graphs/scannetpp_openlex_v2
+  name: replica
+  scenes: ["room0"]
+  path: /data/concept-graphs/Replica_original
 
 pred:
   method: concept-graphs
@@ -26,7 +26,7 @@ eval:
   criteria: "top_k" # ["top_k", "clip_threshold"]
   clip_threshold: 0.5
   top_k: 10
-  iou_threshold: 0.5 # used for rank only
+  iou_threshold: 0.25 # used for rank only
 
 model:
   device: "cuda"

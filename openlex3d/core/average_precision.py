@@ -175,15 +175,13 @@ def evaluate_matches(matches):
                     ap_current = np.dot(precision, stepWidths)
 
                     # Save the precision and recall values for the current class, if overlap threshold is 0.25 or 0.5
-                    if overlap_th == 0.25 or overlap_th == 0.5:
-                        # create metric dict for current class
-                        if label_name not in metric_dict:
-                            metric_dict[label_name] = {}
-                        metric_dict[label_name][overlap_th] = {
-                            "precision": precision,
-                            "recall": recall,
-                            "ap": ap_current,
-                        }
+                    if label_name not in metric_dict:
+                        metric_dict[label_name] = {}
+                    metric_dict[label_name][overlap_th] = {
+                        "precision": precision,
+                        "recall": recall,
+                        "ap": ap_current,
+                    }
 
                 elif has_gt:
                     ap_current = 0.0
