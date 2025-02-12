@@ -1,15 +1,15 @@
 dataset:
   name: "replica"
-  scene: "room0"
-  path: "/home/matias/datasets/replica" # mandatory
-  openlex3d_path: "/home/matias/datasets/openlex3d" # mandatory
+  scene: "room_0"
+  path: /network/scratch/s/sacha.morin/data/Replica_full # mandatory
+  openlex3d_path: /network/scratch/s/sacha.morin/openlex/assets # mandatory
 
 evaluation:
   type: features
-  predictions_path: /home/matias/datasets/results_per_method/concept-graphs/replica/room0/
-  algorithm: conceptgraphs
+  predictions_path: /network/scratch/s/sacha.morin/openlex/predictions/concept-graphs/replica/room0
+  algorithm: concept-graphs
   voxel_downsampling_size: 0.05
-  output_path: /home/matias/datasets/openlex3d_output
+  output_path: /network/scratch/s/sacha.morin/openlex/results
   excluded_labels: ["wall", "floor", "ceiling", "doorframe", "ledge", "windowledge"]
 
 model:

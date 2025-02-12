@@ -37,7 +37,8 @@ dependencies = [
     "torchmetrics",
     "plyfile",
     "pyspellchecker",
-    "colorama"
+    "colorama",
+    "seaborn"
 ]
 
 [build-system]
