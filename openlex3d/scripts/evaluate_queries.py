@@ -5,7 +5,6 @@ from copy import deepcopy
 import hydra
 from omegaconf import DictConfig
 import logging
-from collections import defaultdict
 import pickle
 import open3d as o3d
 
@@ -338,13 +337,14 @@ def get_matches_for_scene(cfg, scene_id):
     # For visualization
     viz_path = (
         Path(cfg.output_path)
+        / "viz"
         / cfg.dataset.name
         / scene_id
         / f"{cfg.pred.method}_{cfg.masks.alignment_mode}_{cfg.masks.alignment_threshold}_{cfg.eval.criteria}_{cfg.eval.clip_threshold}_{cfg.eval.top_k}"
     )
 
     viz_path.mkdir(parents=True, exist_ok=True)
-    o3d.t.io.write_point_cloud(str(viz_path / "point_cloud.pcd"), gt_pcd)
+    o3d.io.write_point_cloud(str(viz_path / "point_cloud.pcd"), gt_pcd.to_legacy())
 
     pickle.dump(matches, open(viz_path / "matches.pkl", "wb"))
 
