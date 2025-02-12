@@ -1,8 +1,61 @@
 from pathlib import Path
-import json
+import pickle
 import open3d as o3d
 import argparse
 import open3d.visualization.gui as gui
+
+from collections import defaultdict
+
+
+def matches_to_per_query_mask_indices(matches, target_query):
+    # Aggregate mask indices per query for both ground truth and predictions
+    mask_indices = defaultdict(lambda: {"gt": set(), "pred": set(), "inter": set()})
+
+    scene = list(matches.keys())[0]
+
+    for gt in matches[scene]["gt"]["object"]:
+        query = gt["query_id"].split("_")[1]
+        if query != target_query:
+            continue
+
+        mask_indices[query]["gt"] = mask_indices[query]["gt"].union(gt["mask_indices"])
+
+    for pred in matches[scene]["pred"]["object"]:
+        query = pred["query_id"].split("_")[1]
+        if query != target_query:
+            continue
+        mask_indices[query]["pred"] = mask_indices[query]["pred"].union(
+            pred["mask_indices"]
+        )
+
+    # Compute intersections
+    for query in mask_indices:
+        mask_indices[query]["inter"] = mask_indices[query]["gt"].intersection(
+            mask_indices[query]["pred"]
+        )
+        mask_indices[query]["gt"] = (
+            mask_indices[query]["gt"] - mask_indices[query]["inter"]
+        )
+        mask_indices[query]["pred"] = (
+            mask_indices[query]["pred"] - mask_indices[query]["inter"]
+        )
+
+        # Convert to list
+        for key in ["gt", "pred", "inter"]:
+            mask_indices[query][key] = [int(i) for i in mask_indices[query][key]]
+
+    return mask_indices
+
+
+def get_unique_queries(matches):
+    queries = set()
+    scene = list(matches.keys())[0]
+
+    for gt in matches[scene]["gt"]["object"]:
+        query = gt["query_id"].split("_")[1]
+        queries.add(query)
+
+    return sorted(list(queries))
 
 
 class QueryViewer:
@@ -10,8 +63,9 @@ class QueryViewer:
         self.viz_path = viz_path
 
         self.main_pcd_name = "pcd_main"
-        self.main_pcd = o3d.io.read_point_cloud(viz_path / "point_cloud.pcd")
-        self.mask_indices = json.load(open(viz_path / "query_mask_indices.json"))
+        self.main_pcd = o3d.io.read_point_cloud(str(viz_path / "point_cloud.pcd"))
+        self.matches = pickle.load(open(viz_path / "matches.pkl", "rb"))
+        self.unique_queries = get_unique_queries(self.matches)
 
         self.current_query = None
         self.query_pcd_rgb_name = "pcd_query_rgb"
@@ -32,22 +86,20 @@ class QueryViewer:
             print("No query loaded. Showing full pcd")
             main_pcd, query_pcd_rgb, query_pcd_pred_gt = True, False, False
 
+        self.remove_geometries(vis, [self.main_pcd_name], [self.main_pcd])
+        self.remove_geometries(vis, [self.query_pcd_rgb_name], [self.query_pcd_rgb])
+        self.remove_geometries(
+            vis, [self.query_pcd_pred_gt_name], [self.query_pcd_pred_gt]
+        )
+
         if main_pcd:
             self.add_geometries(vis, [self.main_pcd_name], [self.main_pcd])
-        else:
-            self.remove_geometries(vis, [self.main_pcd_name], [self.main_pcd])
 
         if query_pcd_rgb:
             self.add_geometries(vis, [self.query_pcd_rgb_name], [self.query_pcd_rgb])
-        else:
-            self.remove_geometries(vis, [self.query_pcd_rgb_name], [self.query_pcd_rgb])
 
         if query_pcd_pred_gt:
             self.add_geometries(
-                vis, [self.query_pcd_pred_gt_name], [self.query_pcd_pred_gt]
-            )
-        else:
-            self.remove_geometries(
                 vis, [self.query_pcd_pred_gt_name], [self.query_pcd_pred_gt]
             )
 
@@ -56,9 +108,11 @@ class QueryViewer:
         self.add_geometries(viewer, geometry_names, geometries)
 
     def load_query(self, query):
-        gt = self.mask_indices[query]["gt"]
-        pred = self.mask_indices[query]["pred"]
-        inter = self.mask_indices[query]["inter"]
+        mask_indices = matches_to_per_query_mask_indices(self.matches, query)
+
+        gt = mask_indices[query]["gt"]
+        pred = mask_indices[query]["pred"]
+        inter = mask_indices[query]["inter"]
 
         gt_pcd = self.main_pcd.select_by_index(gt)
         pred_pcd = self.main_pcd.select_by_index(pred)
@@ -76,8 +130,8 @@ class QueryViewer:
     def query(self, vis):
         query = input("Enter query: ")
 
-        if query not in self.mask_indices:
-            print(f"Query {query} not found in mask indices")
+        if query not in self.unique_queries:
+            print(f"Query {query} not found in unique queries")
             return
 
         self.load_query(query)
@@ -95,10 +149,7 @@ class QueryViewer:
 
     def print_available_queries(self, vis):
         print("Available queries:")
-        queries = list(self.mask_indices.keys())
-        queries = sorted(queries)
-
-        for q in queries:
+        for q in self.unique_queries:
             print(q)
 
     def register_callbacks(self, vis):

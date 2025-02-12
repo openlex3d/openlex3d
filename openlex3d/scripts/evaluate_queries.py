@@ -1,10 +1,12 @@
+from pathlib import Path
 import numpy as np
 from uuid import uuid4
 from copy import deepcopy
 import hydra
 from omegaconf import DictConfig
 import logging
-from collections import defaultdict
+import pickle
+import open3d as o3d
 
 from openlex3d import get_path
 from openlex3d.core.io import load_all_predictions, load_query_json
@@ -258,44 +260,6 @@ def print_matched_pred_ids_for_query(matches, query_id):
 
 
 # ----------------------------
-# Helper function for viz: Convert matches to per-query mask indices
-# ----------------------------
-def matches_to_per_query_mask_indices(matches):
-    # Aggregate mask indices per query for both ground truth and predictions
-    mask_indices = defaultdict(lambda: {"gt": set(), "pred": set(), "inter": set()})
-
-    scene = list(matches.keys())[0]
-
-    for gt in matches[scene]["gt"]["object"]:
-        query = gt["query_id"].split("_")[1]
-        mask_indices[query]["gt"] = mask_indices[query]["gt"].union(gt["mask_indices"])
-
-    for pred in matches[scene]["pred"]["object"]:
-        query = pred["query_id"].split("_")[1]
-        mask_indices[query]["pred"] = mask_indices[query]["pred"].union(
-            pred["mask_indices"]
-        )
-
-    # Compute intersections
-    for query in mask_indices:
-        mask_indices[query]["inter"] = mask_indices[query]["gt"].intersection(
-            mask_indices[query]["pred"]
-        )
-        mask_indices[query]["gt"] = (
-            mask_indices[query]["gt"] - mask_indices[query]["inter"]
-        )
-        mask_indices[query]["pred"] = (
-            mask_indices[query]["pred"] - mask_indices[query]["inter"]
-        )
-
-        # Convert to list
-        for key in ["gt", "pred", "inter"]:
-            mask_indices[query][key] = [int(i) for i in mask_indices[query][key]]
-
-    return mask_indices
-
-
-# ----------------------------
 # Main evaluation function for a single scene
 # ----------------------------
 def get_matches_for_scene(cfg, scene_id):
@@ -370,25 +334,19 @@ def get_matches_for_scene(cfg, scene_id):
     )
     print("Assigned instances.")
 
-    # # Get mask indices per query for both ground truth and predictions
-    # query_match_indices = matches_to_per_query_mask_indices(matches)
-    # print("Converted matches to per-query mask indices.")
+    # For visualization
+    viz_path = (
+        Path(cfg.output_path)
+        / "viz"
+        / cfg.dataset.name
+        / scene_id
+        / f"{cfg.pred.method}_{cfg.masks.alignment_mode}_{cfg.masks.alignment_threshold}_{cfg.eval.criteria}_{cfg.eval.clip_threshold}_{cfg.eval.top_k}"
+    )
 
-    # # For visualization
-    # viz_path = (
-    #     Path(cfg.output_path)
-    #     / "viz"
-    #     / cfg.dataset.name
-    #     / scene_id
-    #     / f"{cfg.pred.method}_{cfg.masks.alignment_mode}_{cfg.masks.alignment_threshold}_{cfg.eval.criteria}_{cfg.eval.clip_threshold}_{cfg.eval.top_k}"
-    # )
-    # viz_path.mkdir(parents=True, exist_ok=True)
-    # with open(
-    #     str(viz_path / "query_mask_indices.json"),
-    #     "w",
-    # ) as f:
-    #     json.dump(query_match_indices, f)
-    # o3d.t.io.write_point_cloud(str(viz_path / "point_cloud.pcd"), gt_pcd)
+    viz_path.mkdir(parents=True, exist_ok=True)
+    o3d.io.write_point_cloud(str(viz_path / "point_cloud.pcd"), gt_pcd.to_legacy())
+
+    pickle.dump(matches, open(viz_path / "matches.pkl", "wb"))
 
     # # Print matched pred_ids for a specific query_id
     # print_matched_pred_ids_for_query(matches, "level0_weight")
