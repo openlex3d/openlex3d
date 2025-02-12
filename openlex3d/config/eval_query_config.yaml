@@ -1,6 +1,9 @@
 # @package _global_
 
 output_path: /home/kumaraditya/openlex3d/query_experiments
+hydra:
+  run:
+    dir: ${output_path}/logs/${dataset.name}/${now:%Y-%m-%d-%H-%M-%S}
 
 dataset:
   name: scannetpp

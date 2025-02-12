@@ -2,6 +2,19 @@ import numpy as np
 import faiss
 
 
+def get_pred_mask_indices_gt_aligned(cfg, pred_pcd, pred_mask_indices, gt_pcd):
+    if cfg.alignment_mode == "global":
+        return get_pred_mask_indices_gt_aligned_global(
+            pred_pcd, pred_mask_indices, gt_pcd, cfg.alignment_threshold
+        )
+    elif cfg.alignment_mode == "per_mask":
+        return get_pred_mask_indices_gt_aligned_per_mask(
+            pred_pcd, pred_mask_indices, gt_pcd, cfg.alignment_threshold
+        )
+    else:
+        raise ValueError(f"Unknown alignment mode: {cfg.alignment_mode}")
+
+
 def get_pred_mask_indices_gt_aligned_global(
     pred_pcd, pred_mask_indices, gt_pcd, threshold
 ):

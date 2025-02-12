@@ -13,10 +13,7 @@ from openlex3d.core.io import load_all_predictions, load_query_json
 from openlex3d.datasets import load_dataset_with_obj_ids
 from openlex3d.core.average_precision import evaluate_matches, compute_averages
 from openlex3d.core.rank_metric import evaluate_rank
-from openlex3d.core.align_masks import (
-    get_pred_mask_indices_gt_aligned_global,
-    get_pred_mask_indices_gt_aligned_per_mask,
-)
+from openlex3d.core.align_masks import get_pred_mask_indices_gt_aligned
 from openlex3d.core.cosine_similarity import compute_normalized_cosine_similarities
 
 logger = logging.getLogger(__name__)
@@ -87,6 +84,33 @@ def create_gt_instances(all_gt_mask_indices, query_list):
 # Create Predicted Instances (using aligned pointcloud indices)
 # ----------------------------
 def create_pred_instances(
+    cfg, pred_features, aligned_pred_mask_indices, query_list, model_cfg
+):
+    # # NOTE: Can be changed later
+    # if cfg.eval.metric == "rank":
+    #     cfg.eval.top_k = pred_features.shape[0]
+
+    if cfg.criteria == "clip_threshold":
+        pred_instances = create_pred_instances_clip_thresh(
+            pred_features,
+            aligned_pred_mask_indices,
+            query_list,
+            model_cfg,
+            threshold=cfg.clip_threshold,
+        )
+    elif cfg.criteria == "top_k":
+        pred_instances = create_pred_instances_top_k(
+            pred_features, aligned_pred_mask_indices, query_list, model_cfg, k=cfg.top_k
+        )
+    else:
+        raise ValueError(
+            "Invalid evaluation criteria: choose 'clip_threshold' or 'top_k'"
+        )
+
+    return pred_instances
+
+
+def create_pred_instances_clip_thresh(
     pred_features, aligned_pred_mask_indices, query_list, model_cfg, threshold=0.6
 ):
     """
@@ -96,6 +120,9 @@ def create_pred_instances(
     """
     query_texts = [q["query_text"] for q in query_list]
     query_ids = [q["query_id"] for q in query_list]
+
+    logger.info(f"Number of queries: {len(query_ids)}")
+    logger.info(f"Number of pred instances: {pred_features.shape[0]}")
 
     norm_sim = compute_normalized_cosine_similarities(
         model_cfg, pred_features, query_texts
@@ -128,7 +155,7 @@ def create_pred_instances(
                 }
                 pred_instances.append(pred_inst)
 
-    print(f"Skipped {len(indices_skipped)} instances.")
+    logger.info(f"Skipped {len(indices_skipped)} instances.")
     return pred_instances
 
 
@@ -143,20 +170,18 @@ def create_pred_instances_top_k(
     query_texts = [q["query_text"] for q in query_list]
     query_ids = [q["query_id"] for q in query_list]
 
-    print(f"Number of queries: {len(query_ids)}")
-    print(f"Number of pred instances: {pred_features.shape[0]}")
+    logger.info(f"Number of queries: {len(query_ids)}")
+    logger.info(f"Number of pred instances: {pred_features.shape[0]}")
 
     norm_sim = compute_normalized_cosine_similarities(
         model_cfg, pred_features, query_texts
     )  # (n_instances, n_queries)
-    print(f"Computed normalized cosine similarities: {norm_sim.shape}")
 
     pred_instances = []
     # n_instances = pred_features.shape[0]
 
     # Get the top-k predictions per query
     top_k_indices = np.argsort(-norm_sim, axis=0)[:k, :]
-    print(f"Top-k indices shape: {top_k_indices.shape}")
 
     indices_skipped = set()
 
@@ -167,7 +192,6 @@ def create_pred_instances_top_k(
 
             mask_indices = aligned_pred_mask_indices.get(i, None)
             if mask_indices is None or len(mask_indices) < opt["min_region_sizes"]:
-                # print(f"Skipping instance {i}.")
                 indices_skipped.add(i)
                 continue
 
@@ -184,7 +208,7 @@ def create_pred_instances_top_k(
             }
             pred_instances.append(pred_inst)
 
-    print(f"Skipped {len(indices_skipped)} instances.")
+    logger.info(f"Skipped {len(indices_skipped)} instances.")
     return pred_instances
 
 
@@ -263,77 +287,47 @@ def print_matched_pred_ids_for_query(matches, query_id):
 # Main evaluation function for a single scene
 # ----------------------------
 def get_matches_for_scene(cfg, scene_id):
-    print("Evaluating scene:", scene_id)
-
     # Load prediction files
+    logger.info(
+        f"Loading predictions for method {cfg.pred.method} on dataset {cfg.dataset.name}, scene {scene_id}"
+    )
     pred_pcd, pred_mask_indices, pred_features = load_all_predictions(
         cfg.pred.path, scene_id
     )
-    print("Loaded prediction files.")
 
     # Load ground truth: mesh and segindices
     gt_pcd, obj_ids = load_dataset_with_obj_ids(cfg.dataset, scene_id)
     gt_pcd_points = gt_pcd.point.positions.numpy()
-    print("Loaded ground truth files.")
 
     # Load queries
+    logger.info("Loading queries")
     query_list = load_query_json(cfg.query.path, cfg.dataset.name, scene_id)
-    print("Loaded query file.")
 
     # Get all GT mask indices and create GT instances
+    logger.info("Creating GT instances")
     all_gt_mask_indices = get_all_gt_mask_indices(obj_ids)
     gt_instances = create_gt_instances(all_gt_mask_indices, query_list)
-    print("Created GT instances.")
 
     # Align predicted masks to the GT mesh using the chosen mode:
-    if cfg.masks.alignment_mode == "global":
-        aligned_pred_mask_indices = get_pred_mask_indices_gt_aligned_global(
-            pred_pcd, pred_mask_indices, gt_pcd_points, cfg.masks.alignment_threshold
-        )
-    elif cfg.masks.alignment_mode == "per_mask":
-        aligned_pred_mask_indices = get_pred_mask_indices_gt_aligned_per_mask(
-            pred_pcd, pred_mask_indices, gt_pcd_points, cfg.masks.alignment_threshold
-        )
-    else:
-        raise ValueError("Invalid alignment_mode: choose 'global' or 'per_mask'")
-    print("Aligned predicted masks to GT mesh.")
+    logger.info(
+        f"Aligning predicted masks to GT mesh with method {cfg.masks.alignment_mode} and dist threshold {cfg.masks.alignment_threshold}"
+    )
+    aligned_pred_mask_indices = get_pred_mask_indices_gt_aligned(
+        cfg.masks, pred_pcd, pred_mask_indices, gt_pcd_points
+    )
 
-    if cfg.eval.metric == "rank":
-        top_k = cfg.eval.top_k  # NOTE: Can be changed later
-    elif cfg.eval.metric == "ap":
-        top_k = cfg.eval.top_k
-    else:
-        raise ValueError("Invalid evaluation metric: choose 'rank' or 'ap'")
-
-    # Create predicted instances using the aligned mask indices
-    if cfg.eval.criteria == "clip_threshold":
-        pred_instances = create_pred_instances(
-            pred_features,
-            aligned_pred_mask_indices,
-            query_list,
-            cfg.model,
-            threshold=cfg.eval.clip_threshold,
-        )
-    elif cfg.eval.criteria == "top_k":
-        pred_instances = create_pred_instances_top_k(
-            pred_features,
-            aligned_pred_mask_indices,
-            query_list,
-            cfg.model,
-            k=top_k,
-        )
-    else:
-        raise ValueError(
-            "Invalid evaluation criteria: choose 'clip_threshold' or 'top_k'"
-        )
-    print("Created predicted instances.")
+    logger.info(f"Creating predicted instances with criteria {cfg.eval.criteria}")
+    pred_instances = create_pred_instances(
+        cfg.eval, pred_features, aligned_pred_mask_indices, query_list, cfg.model
+    )
 
     # Build the matches dictionary for a single scene
+    logger.info("Assigning instances")
     matches, match_stats = assign_instances_for_scene(
         scene_id, gt_instances, pred_instances
     )
-    print("Assigned instances.")
 
+    logger.info("Saving matches")
     # For visualization
     viz_path = (
         Path(cfg.output_path)
@@ -366,20 +360,35 @@ def main(cfg: DictConfig):
     scenes = cfg.dataset.scenes
     all_matches = {}
 
+    logger.info(
+        f"Starting evaluation with {cfg.eval.metric} metric for method {cfg.pred.method} on dataset {cfg.dataset.name}"
+    )
+
     for scene_id in scenes:
         matches, _ = get_matches_for_scene(cfg, scene_id)
         all_matches.update(matches)
+
+        # Per scene metrics
+        if cfg.eval.metric == "rank":
+            avg_inverse_rank, scene_query_ranks = evaluate_rank(
+                matches, cfg.eval.iou_threshold
+            )
+            logger.info(f"Scene {scene_id} - Average inverse rank: {avg_inverse_rank}")
+        elif cfg.eval.metric == "ap":
+            ap_score, metric_dict = evaluate_matches(matches)
+            avg_results = compute_averages(ap_score)
+            logger.info(f"Scene {scene_id} - Average Precision score: {avg_results}")
 
     # Eval metric
     if cfg.eval.metric == "rank":
         avg_inverse_rank, scene_query_ranks = evaluate_rank(
             all_matches, cfg.eval.iou_threshold
         )
-        print("Average Inverse Rank:", avg_inverse_rank)
+        logger.info(f"Average inverse rank: {avg_inverse_rank}")
     elif cfg.eval.metric == "ap":
         ap_score, metric_dict = evaluate_matches(all_matches)
         avg_results = compute_averages(ap_score)
-        print("Average Precision results:", avg_results)
+        logger.info(f"Average Precision score: {avg_results}")
 
 
 if __name__ == "__main__":
