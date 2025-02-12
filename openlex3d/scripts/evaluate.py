@@ -7,6 +7,7 @@ import hydra
 
 from omegaconf import DictConfig
 
+from pathlib import Path
 from openlex3d import get_path
 from openlex3d.datasets import load_dataset
 from openlex3d.models import load_model
@@ -52,7 +53,9 @@ def main(config: DictConfig):
         )
 
         # Get predicted label from logits
-        pred_labels = get_label_from_logits(logits, prompt_list, method="topn", topn=1)
+        pred_labels = get_label_from_logits(
+            logits, prompt_list, method="topn", topn=config.evaluation.top_n
+        )
 
         # Compute metric (intersection over union)
         ious, pred_categories, point_labels, point_categories = (
@@ -68,7 +71,9 @@ def main(config: DictConfig):
 
         # Export predicted clouds
         save_results(
-            output_path=config.evaluation.output_path,
+            output_path=Path(
+                config.evaluation.output_path, f"top_{config.evaluation.top_n}"
+            ),
             dataset=config.dataset.name,
             scene=config.dataset.scene,
             algorithm=config.evaluation.algorithm,
