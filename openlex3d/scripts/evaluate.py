@@ -71,12 +71,12 @@ def main(config: DictConfig):
 
         # Export predicted clouds
         save_results(
-            output_path=Path(
-                config.evaluation.output_path, f"top_{config.evaluation.top_n}"
-            ),
+            output_path=config.evaluation.output_path,
             dataset=config.dataset.name,
             scene=config.dataset.scene,
-            algorithm=config.evaluation.algorithm,
+            algorithm=Path(
+                config.evaluation.algorithm, f"top_{config.evaluation.top_n}"
+            ),
             reference_cloud=gt_cloud,
             pred_categories=pred_categories,
             results=ious,
