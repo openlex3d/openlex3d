@@ -8,7 +8,7 @@
 #SBATCH --mem=48G
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --time=1-00:00:00
+#SBATCH --time=0-03:00:00
 #SBATCH --partition=long
 #SBATCH -o /network/scratch/s/sacha.morin/logs/openlex-eval/slurm-%j.out  # Write the log on scratch
 
