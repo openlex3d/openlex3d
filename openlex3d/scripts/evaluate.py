@@ -3,26 +3,24 @@
 # PYTHON_ARGCOMPLETE_OK
 
 import logging
+import os
 import hydra
-
 from omegaconf import DictConfig
 
+import openlex3d.core.metric as metric  # noqa
 from openlex3d import get_path
+from openlex3d.core.evaluation import (compute_feature_to_prompt_similarity,
+                                       get_label_from_logits)
+from openlex3d.core.io import (load_predicted_features, load_prompt_list,
+                               save_results)
 from openlex3d.datasets import load_dataset
 from openlex3d.models import load_model
-from openlex3d.core.evaluation import (
-    compute_feature_to_prompt_similarity,
-    get_label_from_logits,
-)
-from openlex3d.core.io import load_predicted_features, load_prompt_list, save_results
-import openlex3d.core.metric as metric  # noqa
-
 
 logger = logging.getLogger(__name__)
 
 
 @hydra.main(
-    version_base=None, config_path=f"{get_path()}/config", config_name="replica"
+    version_base=None, config_path=f"{get_path()}/config", config_name="replica_martin"
 )
 def main(config: DictConfig):
     # Load dataset
@@ -37,7 +35,10 @@ def main(config: DictConfig):
 
         # Load predicted features
         pred_cloud, pred_feats = load_predicted_features(
-            config.evaluation.predictions_path,
+            os.path.join(config.evaluation.predictions_path, 
+                         config.dataset.name, 
+                         config.evaluation.algorithm, 
+                         config.dataset.scene),
             config.evaluation.voxel_downsampling_size,
         )
 
@@ -52,10 +53,10 @@ def main(config: DictConfig):
         )
 
         # Get predicted label from logits
-        pred_labels = get_label_from_logits(logits, prompt_list, method="topn", topn=1)
+        pred_labels = get_label_from_logits(logits, prompt_list, method="topn", topn=10)
 
         # Compute metric (intersection over union)
-        ious, pred_categories, point_labels, point_categories = (
+        results, pred_categories, point_labels, point_categories = (
             metric.intersection_over_union_topn(
                 pred_cloud=pred_cloud,
                 pred_labels=pred_labels,
@@ -66,6 +67,15 @@ def main(config: DictConfig):
             )
         )
 
+        set_ranking_results = metric.set_based_ranking(pred_cloud=pred_cloud,
+                gt_cloud=gt_cloud,
+                gt_ids=gt_ids,
+                gt_labels_handler=openlex3d_gt_handler,
+                excluded_labels=config.evaluation.excluded_labels,
+                logits=logits,
+                prompt_list=prompt_list,)
+        results.update(set_ranking_results)
+        
         # Export predicted clouds
         save_results(
             output_path=config.evaluation.output_path,
@@ -74,7 +84,7 @@ def main(config: DictConfig):
             algorithm=config.evaluation.algorithm,
             reference_cloud=gt_cloud,
             pred_categories=pred_categories,
-            results=ious,
+            results=results,
             point_labels=point_labels,
             point_categories=point_categories,
         )
