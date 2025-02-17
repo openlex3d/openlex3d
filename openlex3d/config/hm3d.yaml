@@ -4,4 +4,4 @@ defaults:
 dataset:
   name: "hm3d"
   scene: "00824"
-  path: ${oc.env:SCRATCH}/data/hm3d # mandatory
+  path: /network/scratch/s/sacha.morin/data_openlex/hm3d # mandatory

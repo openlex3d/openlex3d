@@ -37,10 +37,7 @@ def main(config: DictConfig):
 
         # Load predicted features
         pred_cloud, pred_feats = load_predicted_features(
-            os.path.join(config.evaluation.predictions_path, 
-                         config.dataset.name, 
-                         config.evaluation.algorithm, 
-                         config.dataset.scene),
+            config.evaluation.predictions_path,
             config.evaluation.voxel_downsampling_size,
         )
 
@@ -69,7 +66,7 @@ def main(config: DictConfig):
                 excluded_labels=config.evaluation.excluded_labels,
             )
         )
-        results[f"iou{config.evaluation.topn}"] = iou_results
+        results[f"iou_top_{config.evaluation.topn}"] = iou_results
 
         if config.evaluation.set_ranking:
             set_ranking_results = metric.set_based_ranking(pred_cloud=pred_cloud,
@@ -87,7 +84,7 @@ def main(config: DictConfig):
             dataset=config.dataset.name,
             scene=config.dataset.scene,
             algorithm=Path(
-                config.evaluation.algorithm, f"top_{config.evaluation.top_n}"
+                config.evaluation.algorithm, f"top_{config.evaluation.topn}"
             ),
             reference_cloud=gt_cloud,
             pred_categories=pred_categories,
