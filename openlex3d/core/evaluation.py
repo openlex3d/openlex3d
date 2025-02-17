@@ -1,7 +1,9 @@
+from typing import List
+
 import numpy as np
 import torch
+import tqdm
 
-from typing import List
 from openlex3d.models.base import VisualLanguageEncoder
 
 
@@ -9,7 +11,7 @@ def compute_feature_to_prompt_similarity(
     model: torch.nn.Module,
     features: np.ndarray,
     prompt_list: List[str],
-    batch_size: int = 500,
+    batch_size: int = 100,
 ):
     """
     Compute similarity between text and mask_feats
@@ -28,7 +30,7 @@ def compute_feature_to_prompt_similarity(
     num_feats = features.shape[0]
     similarity = np.zeros((num_feats, text_feats.shape[0]))
 
-    for i in range(0, num_feats, batch_size):
+    for i in tqdm.tqdm(range(0, num_feats, batch_size), total=num_feats // batch_size, desc="Computing feat-prompt similarities"):
         batch = torch.from_numpy(features[i : i + batch_size]).unsqueeze(1)
         batch_similarity = torch.nn.functional.cosine_similarity(
             batch, text_features_tensor, dim=2

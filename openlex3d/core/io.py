@@ -1,13 +1,14 @@
+import itertools
+from pathlib import Path
+from typing import Any, Dict, List
+
 import numpy as np
 import open3d as o3d
-import itertools
 import yaml
-
-from typing import List, Dict, Any
-from pathlib import Path
-from sklearn.neighbors import NearestNeighbors
-from openlex3d.core.categories import get_color
 from omegaconf import DictConfig
+from sklearn.neighbors import NearestNeighbors
+
+from openlex3d.core.categories import get_color
 
 PROMPT_LIST_FILE = "prompt_list.txt"
 
@@ -61,7 +62,7 @@ def load_predicted_features(
 
     # Assign features to points
     pcd_to_mask = pcd_to_mask[keep_indices]
-    pred_feats = pred_feats_mask[pcd_to_mask]
+    pred_feats = pred_feats_mask[pcd_to_mask, :]
 
     return pred_cloud, pred_feats
 

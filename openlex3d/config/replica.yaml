@@ -6,15 +6,15 @@ dataset:
 
 evaluation:
   type: features
-  predictions_path: /network/scratch/s/sacha.morin/openlex/predictions/${evaluation.algorithm}/${dataset.name}/${dataset.scene}
-  algorithm: concept-graphs
+  topn: 5
+  predictions_path: /home/matias/datasets/results_per_method/
+  algorithm: conceptgraphs
   voxel_downsampling_size: 0.05
   output_path: /network/scratch/s/sacha.morin/openlex/results
   excluded_labels: ["wall", "floor", "ceiling"]
-  top_n: 1
 
 model:
   device: "cpu"
-  type: open_clip
-  backbone: ViT-H-14 # ViT-L/14@336px # ViT-H-14
+  type: open_clip # openai_clip (for openscene) / open_clip 
+  backbone:  ViT-H-14 # ViT-L/14@336px (openscene) # ViT-H-14
   checkpoint: laion2b_s32b_b79k # options: 'laion2b_s32b_b79k', 'metaclip_fullcc', 'metaclip_altogether', 'dfn5b'
