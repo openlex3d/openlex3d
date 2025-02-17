@@ -209,6 +209,10 @@ class CategoriesHandler:
         clutter_ids = self._get_labels_from_category(id, CLUTTER)
         clutter_ids = [int(x) for x in clutter_ids]
         for id in clutter_ids:
-            if self._match(id, query, SYNONYMS):
+            if (
+                self._match(id, query, SYNONYMS)
+                or self._match(id, query, DEPICTIONS)
+                or self._match(id, query, VISUALLY_SIMILAR)
+            ):
                 return True
         return False
