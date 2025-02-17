@@ -9,7 +9,7 @@ def compute_feature_to_prompt_similarity(
     model: torch.nn.Module,
     features: np.ndarray,
     prompt_list: List[str],
-    batch_size: int = 500,
+    batch_size: int = 100,
 ):
     """
     Compute similarity between text and mask_feats
