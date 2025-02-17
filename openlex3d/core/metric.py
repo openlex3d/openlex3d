@@ -238,6 +238,15 @@ def intersection_over_union_topn(
     )  # noqa
 
 
+def compute_set_ranking_score(ranks: List[int], set_rank_l=3, set_rank_r=5, max_label_idx=11):
+    scores = []
+    for rank in ranks:
+        left_box_constr = 1 + min((0, (rank - set_rank_l)/set_rank_l))
+        right_box_constr = 1-max((0, (rank - set_rank_r)/(max_label_idx - set_rank_r)))
+        scores.append(min(left_box_constr, right_box_constr))
+    return scores
+
+
 def set_based_ranking(pred_cloud: o3d.t.geometry.PointCloud,
                         gt_cloud: o3d.t.geometry.PointCloud,
                         gt_ids: np.ndarray,
@@ -333,36 +342,24 @@ def set_based_ranking(pred_cloud: o3d.t.geometry.PointCloud,
         # print(syn_rank_l, syn_rank_r, vis_sim_rank_l, vis_sim_rank_r, depiction_rank_l, depiction_rank_r, clutter_rank_l, clutter_rank_r)
         # print(syn_rank_l, syn_rank_r, vis_sim_rank_l, vis_sim_rank_r, depiction_rank_l, depiction_rank_r)
 
-        L = len(stripped_prompt_list)
+        L = len(stripped_prompt_list)-1
         index_synonym_scores, index_vis_sim_scores, index_depiction_scores, index_clutter_scores = [], [], [], []
         if consider_synonyms:
-            for pred_rank in syn_ranks:
-                left_box_constr = 1-min((0, (pred_rank - syn_rank_l)/(L - syn_rank_l)))
-                right_box_constr = 1-max((0, (pred_rank - syn_rank_r)/(L - syn_rank_r)))
-                index_synonym_scores.append(min(left_box_constr, right_box_constr))
-            synonym_scores[gt_id].extend(index_synonym_scores)
-            overall_scores[gt_id].extend(index_vis_sim_scores)
+            indiv_syn_scores = compute_set_ranking_score(syn_ranks, syn_rank_l, syn_rank_r, L)
+            synonym_scores[gt_id].extend(indiv_syn_scores)
+            overall_scores[gt_id].extend(indiv_syn_scores)
         if consider_depiction:
-            for pred_rank in depiction_ranks:
-                left_box_constr = 1-min((0, (pred_rank - depiction_rank_l)/(L - depiction_rank_l)))
-                right_box_constr = 1-max((0, (pred_rank - depiction_rank_r)/(L - depiction_rank_r)))
-                index_depiction_scores.append(min(left_box_constr, right_box_constr))
-            depiction_scores[gt_id].extend(index_depiction_scores)
-            overall_scores[gt_id].extend(index_depiction_scores)
+            indiv_depiction_scores = compute_set_ranking_score(depiction_ranks, depiction_rank_l, depiction_rank_r, L)
+            depiction_scores[gt_id].extend(indiv_depiction_scores)
+            overall_scores[gt_id].extend(indiv_depiction_scores)
         if consider_vis_sim:
-            for pred_rank in vis_sim_ranks:
-                left_box_constr = 1-min((0, (pred_rank - vis_sim_rank_l)/(L - vis_sim_rank_l)))
-                right_box_constr = 1-max((0, (pred_rank - vis_sim_rank_r)/(L - vis_sim_rank_r)))
-                index_vis_sim_scores.append(min(left_box_constr, right_box_constr))
-            vis_sim_scores[gt_id].extend(index_vis_sim_scores)
-            overall_scores[gt_id].extend(index_vis_sim_scores)
+            indiv_vis_sim_scores = compute_set_ranking_score(vis_sim_ranks, vis_sim_rank_l, vis_sim_rank_r, L)
+            vis_sim_scores[gt_id].extend(indiv_vis_sim_scores)
+            overall_scores[gt_id].extend(indiv_vis_sim_scores)
         # if consider_clutter:
-        #     for pred_rank in clutter_ranks:
-        #         left_box_constr = 1-min((0, (pred_rank - clutter_rank_l)/(L - clutter_rank_l)))
-        #         right_box_constr = 1-max((0, (pred_rank - clutter_rank_r)/(L - clutter_rank_r)))
-        #         index_clutter_scores.append(min(left_box_constr, right_box_constr))
-        #     clutter_scores[gt_id] = np.nanmean(index_clutter_scores)
-        #     overall_scores[gt_id] += clutter_scores[gt_id]
+        #     indiv_clutter_scores = compute_set_ranking_score(clutter_ranks, clutter_rank_l, clutter_rank_r, L)
+        #     clutter_scores[gt_id].extend(indiv_clutter_scores)
+        #     overall_scores[gt_id].extend(indiv_clutter_scores)
 
     for gt_id in overall_scores.keys():
         overall_scores[gt_id] = float(np.nanmean(overall_scores[gt_id]))
