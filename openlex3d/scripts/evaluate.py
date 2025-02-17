@@ -7,6 +7,7 @@ import os
 
 import hydra
 from omegaconf import DictConfig
+from pathlib import Path
 
 import openlex3d.core.metric as metric  # noqa
 from openlex3d import get_path
@@ -85,7 +86,9 @@ def main(config: DictConfig):
             output_path=config.evaluation.output_path,
             dataset=config.dataset.name,
             scene=config.dataset.scene,
-            algorithm=config.evaluation.algorithm,
+            algorithm=Path(
+                config.evaluation.algorithm, f"top_{config.evaluation.top_n}"
+            ),
             reference_cloud=gt_cloud,
             pred_categories=pred_categories,
             results=results,

@@ -1,0 +1,7 @@
+defaults:
+  - replica
+
+dataset:
+  name: "scannetpp"
+  scene: "00824"
+  path: /network/scratch/s/sacha.morin/data_openlex/scannetpp_openlex_v2 # mandatory
