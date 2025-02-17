@@ -6,6 +6,7 @@ dataset:
 
 evaluation:
   type: features
+  topn: 5
   predictions_path: /home/matias/datasets/results_per_method/
   algorithm: conceptgraphs
   voxel_downsampling_size: 0.05

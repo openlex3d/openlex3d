@@ -4,6 +4,7 @@
 
 import logging
 import os
+
 import hydra
 from omegaconf import DictConfig
 
@@ -20,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 @hydra.main(
-    version_base=None, config_path=f"{get_path()}/config", config_name="replica_martin"
+    version_base=None, config_path=f"{get_path()}/config", config_name="replica"
 )
 def main(config: DictConfig):
     # Load dataset
@@ -53,10 +54,11 @@ def main(config: DictConfig):
         )
 
         # Get predicted label from logits
-        pred_labels = get_label_from_logits(logits, prompt_list, method="topn", topn=10)
+        pred_labels = get_label_from_logits(logits, prompt_list, method="topn", topn=config.evaluation.topn)
 
+        results = {}
         # Compute metric (intersection over union)
-        results, pred_categories, point_labels, point_categories = (
+        iou_results, pred_categories, point_labels, point_categories = (
             metric.intersection_over_union_topn(
                 pred_cloud=pred_cloud,
                 pred_labels=pred_labels,
@@ -66,15 +68,17 @@ def main(config: DictConfig):
                 excluded_labels=config.evaluation.excluded_labels,
             )
         )
+        results[f"iou{config.evaluation.topn}"] = iou_results
 
-        set_ranking_results = metric.set_based_ranking(pred_cloud=pred_cloud,
-                gt_cloud=gt_cloud,
-                gt_ids=gt_ids,
-                gt_labels_handler=openlex3d_gt_handler,
-                excluded_labels=config.evaluation.excluded_labels,
-                logits=logits,
-                prompt_list=prompt_list,)
-        results.update(set_ranking_results)
+        if config.evaluation.set_ranking:
+            set_ranking_results = metric.set_based_ranking(pred_cloud=pred_cloud,
+                    gt_cloud=gt_cloud,
+                    gt_ids=gt_ids,
+                    gt_labels_handler=openlex3d_gt_handler,
+                    excluded_labels=config.evaluation.excluded_labels,
+                    logits=logits,
+                    prompt_list=prompt_list,)
+            results["ranking"] =set_ranking_results
         
         # Export predicted clouds
         save_results(

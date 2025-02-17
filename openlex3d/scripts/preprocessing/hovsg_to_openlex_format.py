@@ -59,7 +59,7 @@ if __name__ == "__main__":
     coords = np.concatenate(coords, axis=0)
     colors = np.concatenate(colors, axis=0)
     mask_colors = np.concatenate(mask_colors, axis=0)
-    mask_idcs = np.concatenate(mask_idcs, axis=0)
+    mask_idcs = np.concatenate(mask_idcs, axis=0).squeeze(-1)
 
     cloud = o3d.geometry.PointCloud()
     cloud.points = o3d.utility.Vector3dVector(coords)
