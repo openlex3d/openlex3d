@@ -78,7 +78,7 @@ def main(config: DictConfig):
                     excluded_labels=config.evaluation.excluded_labels,
                     logits=logits,
                     prompt_list=prompt_list,)
-            results["ranking"] =set_ranking_results
+            results["ranking"] = set_ranking_results
         
         # Export predicted clouds
         save_results(

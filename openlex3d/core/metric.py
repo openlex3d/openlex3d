@@ -1,5 +1,5 @@
+from collections import defaultdict
 from typing import List
-from collections import defaultdict 
 
 import numpy as np
 import open3d as o3d
@@ -370,9 +370,9 @@ def set_based_ranking(pred_cloud: o3d.t.geometry.PointCloud,
         vis_sim_scores[gt_id] = float(np.nanmean(vis_sim_scores[gt_id]))
         depiction_scores[gt_id] = float(np.nanmean(depiction_scores[gt_id]))
 
-    results = {"overall_set_ranking": float(np.nanmean(list(overall_scores.values()))), 
-                "synonym_set_ranking": float(np.nanmean(list(synonym_scores.values()))), 
-                "vis_sim_set_ranking": float(np.nanmean(list(vis_sim_scores.values()))), 
-                "depiction_set_ranking": float(np.nanmean(list(depiction_scores.values())))}
+    results = {"overall": float(np.nanmean(list(overall_scores.values()))), 
+                "synonyms": float(np.nanmean(list(synonym_scores.values()))), 
+                "vis_sim": float(np.nanmean(list(vis_sim_scores.values()))), 
+                "depictions": float(np.nanmean(list(depiction_scores.values())))}
 
     return results
