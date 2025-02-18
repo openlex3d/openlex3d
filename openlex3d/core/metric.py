@@ -288,7 +288,7 @@ def set_based_ranking(pred_cloud: o3d.t.geometry.PointCloud,
 
         # obtain synonym ranks
         synonyms = gt_labels_handler._get_labels_from_category(gt_id, "synonyms")
-        synonym_idcs = [stripped_prompt_list.index(synonym) for synonym in synonyms]
+        synonym_idcs = [stripped_prompt_list.index(synonym) for synonym in synonyms if synonym in stripped_prompt_list]
 
         rolling_rank = 0
         if len(synonym_idcs) > 0:
@@ -306,7 +306,7 @@ def set_based_ranking(pred_cloud: o3d.t.geometry.PointCloud,
         # obtain depiction-ranks
         depiction = gt_labels_handler._get_labels_from_category(gt_id, "depictions")
         depiction_idcs = [
-            stripped_prompt_list.index(depiction_label) for depiction_label in depiction
+            stripped_prompt_list.index(depiction_label) for depiction_label in depiction if depiction_label in stripped_prompt_list
         ]
 
         if len(depiction_idcs) > 0:
@@ -328,7 +328,7 @@ def set_based_ranking(pred_cloud: o3d.t.geometry.PointCloud,
         # obtain vis-sim ranks
         vis_sim = gt_labels_handler._get_labels_from_category(gt_id, "vis_sim")
         vis_sim_idcs = [
-            stripped_prompt_list.index(vis_sim_label) for vis_sim_label in vis_sim
+            stripped_prompt_list.index(vis_sim_label) for vis_sim_label in vis_sim if vis_sim_label in stripped_prompt_list
         ]
 
         if len(vis_sim_idcs) > 0:
