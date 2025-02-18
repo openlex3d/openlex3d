@@ -13,6 +13,7 @@ from openlex3d.core.categories import CategoriesHandler, get_categories
 # Used to assign instance labels from the ground truth to
 # the visible ground truth
 GT_DATA_ASSOCIATION_THR = 0.05  # meters
+EPS = 1e-8
 
 
 def intersection_over_union(
@@ -242,7 +243,7 @@ def intersection_over_union_topn(
 def compute_set_ranking_score(ranks: List[int], set_rank_l=3, set_rank_r=5, max_label_idx=11):
     scores = []
     for rank in ranks:
-        left_box_constr = 1 + min((0, (rank - set_rank_l)/set_rank_l))
+        left_box_constr = 1 + min((0, (rank - set_rank_l)/(set_rank_l + EPS)))
         right_box_constr = 1-max((0, (rank - set_rank_r)/(max_label_idx - set_rank_r)))
         scores.append(min(left_box_constr, right_box_constr))
     return scores
