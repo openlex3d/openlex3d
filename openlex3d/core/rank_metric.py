@@ -87,6 +87,12 @@ def evaluate_rank(matches, iou_threshold):
     # Sort the final list (ensuring that -1 values remain unchanged).
     final_rank_list = sorted(final_rank_list, key=lambda x: (x == -1, x))
 
+    # # print query_ids with only -1 ranks
+    # for scene_id, query_data in scene_query_ranks.items():
+    #     for query_id, ranks in query_data.items():
+    #         if all(r == -1 for r in ranks):
+    #             print(f"Scene {scene_id}, Query {query_id}: All ranks are -1.")
+
     # Compute the average inverse rank:
     # For valid ranks (r > 0), use 1/r; for -1 or r <= 0, use 0.
     inverse_ranks = [0.0 if r == -1 or r <= 0 else 1.0 / r for r in final_rank_list]

@@ -46,6 +46,8 @@ def build_query_to_obj_mapping(data):
                     query_mapping[level][query] = []
                 query_mapping[level][query].append(obj_id)
 
+    del query_mapping["level1"]
+
     return query_mapping
 
 
@@ -60,8 +62,10 @@ def process_scene_labels(input_path):
 
     base_name = Path(input_path).stem
     base_path = Path(input_path).parent
-    scene_queries_output_path = base_path / f"{base_name}_w_queries.json"
-    query_mapping_output_path = base_path / f"{base_name}_query_to_object_mapping.json"
+    scene_queries_output_path = base_path / f"{base_name}_w_queries_l1.json"
+    query_mapping_output_path = (
+        base_path / f"{base_name}_query_to_object_mapping_l1.json"
+    )
 
     updated_scene_data = add_queries_to_scene(data)
 

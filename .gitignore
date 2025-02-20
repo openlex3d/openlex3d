@@ -167,3 +167,7 @@ cython_debug/
 # Other
 outputs/
 query_experiments/
+query_experiments_overnight
+query_experiments_perf_debug
+query_experiments_perf_debug_overnight
+query_experiments_perf_debug_v2
