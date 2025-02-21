@@ -11,18 +11,18 @@ dataset:
   path: /home/kumaraditya/datasets/Replica_original
 
 pred:
-  method: openmask3d_nms_0.5_duplicated
+  method: concept-graphs
   path: /home/kumaraditya/openlex_results/${pred.method}/${dataset.name}
 
 query:
   path: /home/kumaraditya/openlex_labels
 
 masks:
-  alignment_mode: "per_mask" # ["per_mask", "global"]
-  alignment_threshold: 0.002 # dist threshold for nearest neighbor alignment
+  alignment_mode: "global" # ["per_mask", "global"]
+  alignment_threshold: 0.01 # dist threshold for nearest neighbor alignment
 
 eval:
-  metric: "rank" # ["rank", "ap"]
+  metric: "rank" # ["rank", "ap", "all"]
   criteria: "top_k" # ["top_k", "clip_threshold"]
   clip_threshold: 0.5
   top_k: 20

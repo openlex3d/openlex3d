@@ -170,7 +170,7 @@ def load_query_json(jsons_path, dataset, scene):
         Path(jsons_path)
         / dataset
         / scene
-        / "gt_categories_query_to_object_mapping_l1.json"
+        / "gt_categories_query_to_object_mapping.json"
     )
     with open(query_json_file, "r") as f:
         queries = json.load(f)
