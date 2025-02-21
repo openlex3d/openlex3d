@@ -1,6 +1,6 @@
 # @package _global_
 
-output_path: /home/kumaraditya/openlex3d/query_experiments_perf_debug_v2
+output_path: /home/kumaraditya/openlex3d/query_experiments_v3
 hydra:
   run:
     dir: ${output_path}/logs/${eval.metric}/${dataset.name}/${now:%Y-%m-%d-%H-%M-%S}
@@ -18,14 +18,14 @@ query:
   path: /home/kumaraditya/openlex_labels
 
 masks:
-  alignment_mode: "global" # ["per_mask", "global"]
-  alignment_threshold: 0.01 # dist threshold for nearest neighbor alignment
+  alignment_mode: "per_mask" # ["per_mask", "global"]
+  alignment_threshold: 0.001 # dist threshold for nearest neighbor alignment
 
 eval:
-  metric: "rank" # ["rank", "ap", "all"]
+  metric: "ap" # ["rank", "ap"]
   criteria: "top_k" # ["top_k", "clip_threshold"]
   clip_threshold: 0.5
-  top_k: 20
+  top_k: 10
   iou_threshold: 0.25 # used for rank only
 
 model:

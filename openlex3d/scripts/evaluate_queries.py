@@ -4,8 +4,10 @@ from uuid import uuid4
 from copy import deepcopy
 import hydra
 from omegaconf import DictConfig
+from omegaconf import OmegaConf
 import logging
 import pickle
+import json
 import open3d as o3d
 
 from openlex3d import get_path
@@ -34,6 +36,24 @@ CLASS_LABELS = ["object"]
 VALID_CLASS_IDS = np.array([1])
 ID_TO_LABEL = {1: "object"}
 LABEL_TO_ID = {"object": 1}
+
+
+# ----------------------------
+# Save Query Results in JSON
+# ----------------------------
+def save_query_results_json(cfg, per_scene_results, overall_results, json_output_dir):
+    # Convert the entire cfg to a Python dictionary
+    cfg_as_dict = OmegaConf.to_container(cfg, resolve=True)
+
+    results_dict = {
+        "cfg": cfg_as_dict,  # store everything if you want
+        "results": {"per_scene": per_scene_results, "overall": overall_results},
+    }
+
+    json_output_path = Path(json_output_dir) / "results.json"
+    with open(json_output_path, "w") as f:
+        json.dump(results_dict, f, indent=4)
+    logger.info(f"Saved JSON results to: {json_output_path}")
 
 
 # ----------------------------
@@ -363,48 +383,61 @@ def main(cfg: DictConfig):
     all_matches = {}
 
     logger.info(
-        f"Starting evaluation with {cfg.eval.metric} metric for method {cfg.pred.method} on dataset {cfg.dataset.name}"
+        f"Starting evaluation with {cfg.eval.metric} metric "
+        f"for method {cfg.pred.method} on dataset {cfg.dataset.name}"
     )
+
+    # Prepare dictionaries to hold per‐scene metrics you care about
+    per_scene_results = {}
 
     for scene_id in scenes:
         matches, _ = get_matches_for_scene(cfg, scene_id)
         all_matches.update(matches)
 
-        # Per scene metrics
         if cfg.eval.metric == "rank":
             avg_inverse_rank, scene_query_ranks = evaluate_rank(
                 matches, cfg.eval.iou_threshold
             )
             logger.info(f"Scene {scene_id} - Average inverse rank: {avg_inverse_rank}")
+            per_scene_results[scene_id] = {"avg_inverse_rank": avg_inverse_rank}
+
         elif cfg.eval.metric == "ap":
             ap_score, metric_dict = evaluate_matches(matches)
             avg_results = compute_averages(ap_score)
-            logger.info(f"Scene {scene_id} - Average Precision score: {avg_results}")
+            logger.info(f"Scene {scene_id} - Average Precision: {avg_results}")
+            per_scene_results[scene_id] = avg_results
 
-    # Eval metric
+    # Compute overall (all scenes)
+    overall_results = {}
+
     if cfg.eval.metric == "rank":
         avg_inverse_rank, scene_query_ranks = evaluate_rank(
             all_matches, cfg.eval.iou_threshold
         )
         logger.info(f"IoU used: {cfg.eval.iou_threshold}")
-        logger.info(f"Average inverse rank: {avg_inverse_rank}")
+        logger.info(f"Overall average inverse rank: {avg_inverse_rank}")
 
+        # Save the pickled ranks (if needed)
         ranks_output_path = (
             Path(cfg.output_path)
             / "rank_metric"
             / cfg.dataset.name
-            / f"{cfg.pred.method}_{cfg.masks.alignment_mode}_{cfg.masks.alignment_threshold}_{cfg.eval.top_k}_{cfg.eval.iou_threshold}"
+            / f"{cfg.pred.method}_{cfg.masks.alignment_mode}_"
+            f"{cfg.masks.alignment_threshold}_{cfg.eval.top_k}_{cfg.eval.iou_threshold}"
         )
         ranks_output_path.mkdir(parents=True, exist_ok=True)
         pickle.dump(
             scene_query_ranks, open(ranks_output_path / "query_ranks.pkl", "wb")
         )
 
+        overall_results["avg_inverse_rank"] = avg_inverse_rank
+
     elif cfg.eval.metric == "ap":
         ap_score, metric_dict = evaluate_matches(all_matches)
         avg_results = compute_averages(ap_score)
-        logger.info(f"Average Precision score: {avg_results}")
+        logger.info(f"Overall Average Precision: {avg_results}")
 
+        # Save the pickled metrics (if needed)
         ap_output_path = (
             Path(cfg.output_path)
             / "ap_metric"
@@ -413,6 +446,14 @@ def main(cfg: DictConfig):
         )
         ap_output_path.mkdir(parents=True, exist_ok=True)
         pickle.dump(metric_dict, open(ap_output_path / "ap_metrics.pkl", "wb"))
+
+        overall_results.update(avg_results)
+
+    # Finally, save JSON containing all metadata + results
+    json_output_dir = hydra.core.hydra_config.HydraConfig().get()["runtime"][
+        "output_dir"
+    ]
+    save_query_results_json(cfg, per_scene_results, overall_results, json_output_dir)
 
 
 if __name__ == "__main__":
