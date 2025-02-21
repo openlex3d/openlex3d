@@ -1,255 +1,169 @@
+import argparse
+from pathlib import Path
+
 import open3d as o3d
+import open3d.visualization.gui as gui
 import numpy as np
-import pickle
-
-# ------------------------------------------------------------------------------
-# Adjust these paths before running
-PCD_FILE_PATH = "/data/concept-graphs/scannetpp_openlex_v2/data/49a82360aa/scans/mesh_aligned_0.05.ply"
-MASK_DICT_PATH = (
-    "/home/kumaraditya/openlex3d/pred_masks_aligned_49a82360aa_global_0.01.pkl"
-)
-# ------------------------------------------------------------------------------
-
-
-def pc_estimate_normals(pcd, radius=0.1, max_nn=16):
-    """
-    Estimates the normals for a point cloud using a hybrid KDTree search.
-    """
-    pcd.estimate_normals(
-        search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=radius, max_nn=max_nn)
-    )
-    return pcd
 
 
 class MaskViewer:
-    def __init__(self, pcd_file_path, mask_dict_path):
+    def __init__(self, viz_path: Path):
         """
-        Initializes the MaskViewer by loading the point cloud and the
-        dictionary mapping obj_id -> array of point indices.
+        Initialize the MaskViewer with the paths to:
+          - point_cloud.pcd
+          - index.npy
+        We store the main point cloud, the mask index array, and any derived
+        sub-point-clouds here.
         """
-        # 1. Load the point cloud
-        self.pcd = o3d.io.read_point_cloud(pcd_file_path)
-        self.pcd = pc_estimate_normals(self.pcd)
-        if not self.pcd.has_points():
-            raise ValueError(f"No points found in PCD at {pcd_file_path}")
 
-        # 2. Load the mask dictionary (obj_id -> np.array of indices)
-        with open(mask_dict_path, "rb") as f:
-            self.mask_dict = pickle.load(f)
-        if not isinstance(self.mask_dict, dict):
-            raise ValueError("Loaded mask_dict is not a dictionary.")
+        # Load the main point cloud
+        self.main_pcd_name = "pcd_main"
+        self.main_pcd = o3d.io.read_point_cloud(str(viz_path / "point_cloud.pcd"))
+        num_points = len(self.main_pcd.points)
 
-        # 3. Store original colors
-        #    If the PCD has no colors, we'll initialize all points as gray
-        self.original_colors = np.asarray(self.pcd.colors).copy()
-        if len(self.original_colors) == 0:
-            point_count = len(self.pcd.points)
-            gray = np.full((point_count, 3), 0.5)  # mid-gray
-            self.pcd.colors = o3d.utility.Vector3dVector(gray)
-            self.original_colors = np.asarray(self.pcd.colors).copy()
+        # Load the mask index array, shape should be (N,)
+        self.index = np.load(str(viz_path / "index.npy"))
+        assert len(self.index.shape) == 1, "index.npy must be 1D"
+        assert self.index.shape[0] == num_points, (
+            f"index.npy has {self.index.shape[0]} elements, "
+            f"but point cloud has {num_points} points"
+        )
 
-    def highlight_obj(self, obj_id):
+        # Get all unique mask IDs
+        self.unique_masks = np.unique(self.index)
+
+        # We'll keep references for geometry that shows just a specific mask
+        self.mask_pcd_name = "pcd_mask"
+        self.mask_pcd = None
+
+        # Keep track of which mask is being displayed
+        self.current_mask_id = None
+
+    def add_geometries(self, viewer, geometry_names, geometries):
+        """Helper to add multiple geometries to the viewer."""
+        for name, geometry in zip(geometry_names, geometries):
+            viewer.add_geometry(name, geometry)
+
+    def remove_geometries(self, viewer, geometry_names):
+        """Helper to remove multiple geometries from the viewer."""
+        for name in geometry_names:
+            # Must handle if geometry does not exist in the scene
+            viewer.remove_geometry(name)
+            # try:
+            #     viewer.remove_geometry(name)
+            # except:
+            #     print(f"Geometry {name} not found in the scene.")
+
+    def update(self, vis, show_main=False, show_mask=False):
         """
-        Highlights the points belonging to the given obj_id in their
-        original color, while making all other points gray.
+        Decides which geometry (main_pcd, mask_pcd) should be
+        currently displayed in the viewer.
         """
-        # 1. Prepare an all-gray array
-        point_count = len(self.pcd.points)
-        gray = np.full((point_count, 3), 0.5)
+        # Remove any existing geometry from the viewer
+        self.remove_geometries(vis, [self.main_pcd_name, self.mask_pcd_name])
 
-        # 2. Get the indices for the chosen object
-        if obj_id not in self.mask_dict:
-            print(
-                f"Object ID {obj_id} not found in dictionary. No highlighting applied."
-            )
-            self.pcd.colors = o3d.utility.Vector3dVector(gray)
+        if show_main:
+            self.add_geometries(vis, [self.main_pcd_name], [self.main_pcd])
+
+        if show_mask and self.mask_pcd is not None:
+            self.add_geometries(vis, [self.mask_pcd_name], [self.mask_pcd])
+
+    def toggle_main(self, vis):
+        """Action to display all points in the point cloud."""
+        # We hide the mask display and show the main pcd
+        self.update(vis, show_main=True, show_mask=False)
+
+    def toggle_mask(self, vis):
+        """
+        Action to display only the selected mask's points.
+        If no mask has been chosen yet, prompt the user.
+        """
+        if self.current_mask_id is None:
+            self.select_mask(vis)  # Will call update inside if needed
+        else:
+            self.update(vis, show_main=False, show_mask=True)
+
+    def select_mask(self, vis):
+        """
+        A callback that prompts the user for a mask ID,
+        then creates a sub-point-cloud of only the points
+        belonging to that mask.
+        """
+        user_input = input("Enter mask ID (integer): ")
+        try:
+            mask_id = int(user_input)
+        except ValueError:
+            print("Please enter a valid integer for the mask ID.")
             return
 
-        indices_to_highlight = self.mask_dict[obj_id]
-        print(indices_to_highlight)
+        if mask_id not in self.unique_masks:
+            print(f"Mask ID {mask_id} not found. Available IDs: {self.unique_masks}")
+            return
 
-        # 3. Restore red color for the highlighted object
-        # gray[indices_to_highlight] = self.original_colors[indices_to_highlight]
-        gray[indices_to_highlight] = np.array([1, 0, 0])
+        # Construct the sub-point-cloud for this mask
+        indices = np.where(self.index == mask_id)[0]
+        self.mask_pcd = self.main_pcd.select_by_index(indices)
 
-        # 4. Update the point cloud colors
-        self.pcd.colors = o3d.utility.Vector3dVector(gray)
+        # Optionally, give the mask points a uniform color
+        # self.mask_pcd.paint_uniform_color([1, 0, 0])  # Red
 
-    def reset_colors(self):
+        self.current_mask_id = mask_id
+
+        # Update the scene to only show the mask
+        self.update(vis, show_main=False, show_mask=True)
+
+    def list_masks(self, vis):
+        """A callback to list all available mask IDs."""
+        print("Available mask IDs:")
+        for m in self.unique_masks:
+            print(m)
+
+    def register_callbacks(self, vis):
         """
-        Resets the point cloud to its original colors.
+        Register actions (buttons in the O3DVisualizer UI).
+        These can be seen in the menu of the visualization window.
         """
-        self.pcd.colors = o3d.utility.Vector3dVector(self.original_colors)
-
-    # --- CALLBACKS ---
-
-    def highlight_callback(self, vis):
-        """
-        A callback that prompts the user (via terminal) to input an object ID,
-        then highlights that object's points.
-        """
-        obj_id_str = input("Enter object ID to highlight: ")
-        try:
-            obj_id = int(obj_id_str)
-        except ValueError:
-            print("Invalid integer input.")
-            return False
-
-        self.highlight_obj(obj_id)
-        vis.update_geometry(self.pcd)
-        return False  # Continue the visualizer loop
-
-    def reset_callback(self, vis):
-        """
-        A callback that resets the PCD to the original colors.
-        """
-        self.reset_colors()
-        vis.update_geometry(self.pcd)
-        return False  # Continue the visualizer loop
-
-    # --- MAIN LOOP ---
-
-    def run(self):
-        """
-        Creates the Open3D visualization window, loads the point cloud,
-        registers the key callbacks, and starts the interactive loop.
-        """
-        vis = o3d.visualization.VisualizerWithKeyCallback()
-        vis.create_window(window_name="Mask Viewer", width=1280, height=720)
-
-        # Add geometry once
-        vis.add_geometry(self.pcd)
-
-        # Register a callback to prompt the user for an obj_id when 'H' is pressed
-        vis.register_key_callback(ord("H"), self.highlight_callback)
-
-        # Register a callback to reset the colors when 'R' is pressed
-        vis.register_key_callback(ord("R"), self.reset_callback)
-
-        print("Instructions:")
-        print("  - Press 'H' to highlight an object.")
-        print("  - Then enter the object ID in the terminal.")
-        print("  - Press 'R' to reset all colors.")
-        print("  - Press ESC or close window to exit.\n")
-
-        vis.run()
-        vis.destroy_window()
-
-
-class MaskViewerObjects:
-    def __init__(self, pcd_file_path, mask_dict_path):
-        """
-        Initializes the MaskViewer by loading the point cloud,
-        loading the dictionary mapping obj_id -> array of point indices,
-        and setting up normal estimation.
-        """
-        # 1. Load the full point cloud
-        full_pcd = o3d.io.read_point_cloud(pcd_file_path)
-        if not full_pcd.has_points():
-            raise ValueError(f"No points found in PCD at {pcd_file_path}")
-
-        # 2. Load the mask dictionary (obj_id -> np.array of indices)
-        with open(mask_dict_path, "rb") as f:
-            self.mask_dict = pickle.load(f)
-        if not isinstance(self.mask_dict, dict):
-            raise ValueError("Loaded mask_dict is not a dictionary.")
-
-        # 3. Estimate normals on the full point cloud
-        pc_estimate_normals(full_pcd)
-
-        # Store this original geometry (all points)
-        # We'll always select subsets from here
-        self.full_pcd = full_pcd
-
-        # 4. Prepare the 'display' point cloud (initially the same as full)
-        self.display_pcd = o3d.geometry.PointCloud(self.full_pcd)
-
-    def refresh_display_pcd(self, indices, vis):
-        """
-        Replace the currently displayed geometry with a subset of
-        the full point cloud (as selected by 'indices').
-        """
-        # Remove the old display geometry from the viewer
-        vis.remove_geometry(self.display_pcd, reset_bounding_box=False)
-
-        # Create a new geometry for the subset
-        # (only the points corresponding to 'indices')
-        new_pcd = self.full_pcd.select_by_index(indices, invert=False)
-
-        # Estimate normals again for the subset
-        pc_estimate_normals(new_pcd)
-
-        # Update the display_pcd reference
-        self.display_pcd = new_pcd
-
-        # Add new geometry back to the viewer
-        vis.add_geometry(self.display_pcd)
-        vis.update_renderer()
-
-    # ----------- CALLBACKS ----------- #
-
-    def highlight_callback(self, vis):
-        """
-        Callback that prompts the user for an obj_id, then displays
-        only those points (all others become hidden).
-        """
-        obj_id_str = input("Enter object ID to highlight: ")
-        try:
-            obj_id = int(obj_id_str)
-        except ValueError:
-            print("Invalid integer input.")
-            return False  # keep visualizer running
-
-        if obj_id not in self.mask_dict:
-            print(f"Object ID {obj_id} not found in dictionary. Nothing to show.")
-            return False
-
-        # Get the indices for the chosen object
-        highlight_indices = self.mask_dict[obj_id]
-
-        # Refresh the displayed geometry to only these indices
-        self.refresh_display_pcd(highlight_indices, vis)
-        return False
-
-    def reset_callback(self, vis):
-        """
-        Callback that shows all points again (resets the display).
-        """
-        # Use all indices
-        all_indices = np.arange(len(self.full_pcd.points))
-        self.refresh_display_pcd(all_indices, vis)
-        return False
-
-    # ----------- MAIN LOOP ----------- #
-
-    def run(self):
-        """
-        Creates the Open3D visualization window, registers key callbacks,
-        and starts the interactive loop.
-        """
-        vis = o3d.visualization.VisualizerWithKeyCallback()
-        vis.create_window(window_name="Mask Viewer", width=1280, height=720)
-
-        # Add the initial geometry (all points)
-        vis.add_geometry(self.display_pcd)
-
-        # Register callbacks:
-        #   'H' -> highlight an object (only show its points)
-        vis.register_key_callback(ord("H"), self.highlight_callback)
-        #   'R' -> reset to show all points
-        vis.register_key_callback(ord("R"), self.reset_callback)
-
-        print("Instructions:")
-        print(
-            "  - Press 'H' to highlight an object (terminal will prompt for an object ID)."
-        )
-        print("  - Press 'R' to reset (show all points).")
-        print("  - Press ESC or close the window to exit.\n")
-
-        vis.run()
-        vis.destroy_window()
+        vis.add_action("Show All Points", self.toggle_main)
+        vis.add_action("Show Current Mask", self.toggle_mask)
+        vis.add_action("Select New Mask", self.select_mask)
+        vis.add_action("List Masks", self.list_masks)
 
 
 if __name__ == "__main__":
-    viewer = MaskViewer(PCD_FILE_PATH, MASK_DICT_PATH)
-    viewer.run()
+    parser = argparse.ArgumentParser(
+        description="Visualize points from a .pcd file by mask (as per index.npy)."
+    )
+    parser.add_argument(
+        "viz_path",
+        type=str,
+        help="Path to directory with point_cloud.pcd and index.npy.",
+    )
+    args = parser.parse_args()
+
+    viz_path = Path(args.viz_path)
+
+    # Create our viewer
+    viewer = MaskViewer(viz_path)
+
+    # Set up the Open3D application and O3DVisualizer
+    app = gui.Application.instance
+    app.initialize()
+
+    vis = o3d.visualization.O3DVisualizer("Mask Visualization", 1024, 768)
+    vis.set_background([1.0, 1.0, 1.0, 1.0], bg_image=None)
+    vis.show_settings = True
+    vis.show_skybox(False)
+    vis.enable_raw_mode(True)
+
+    # Initially, add the full point cloud to the scene
+    viewer.add_geometries(vis, [viewer.main_pcd_name], [viewer.main_pcd])
+
+    # Register the menu callbacks
+    viewer.register_callbacks(vis)
+
+    # Reset the camera
+    vis.reset_camera_to_default()
+
+    # Launch the viewer
+    app.add_window(vis)
+    app.run()

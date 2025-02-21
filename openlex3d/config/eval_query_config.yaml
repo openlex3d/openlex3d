@@ -1,6 +1,6 @@
 # @package _global_
 
-output_path: /home/kumaraditya/openlex3d/query_experiments
+output_path: /home/kumaraditya/openlex3d/query_experiments_perf_debug_v2
 hydra:
   run:
     dir: ${output_path}/logs/${eval.metric}/${dataset.name}/${now:%Y-%m-%d-%H-%M-%S}
@@ -8,28 +8,28 @@ hydra:
 dataset:
   name: replica
   scenes: ["room0"]
-  path: /data/concept-graphs/Replica_original
+  path: /home/kumaraditya/datasets/Replica_original
 
 pred:
   method: concept-graphs
-  path: /data/openlex_results/${pred.method}/${dataset.name}
+  path: /home/kumaraditya/openlex_results/${pred.method}/${dataset.name}
 
 query:
-  path: /data/openlex_labels
+  path: /home/kumaraditya/openlex_labels
 
 masks:
   alignment_mode: "global" # ["per_mask", "global"]
   alignment_threshold: 0.01 # dist threshold for nearest neighbor alignment
 
 eval:
-  metric: "ap" # ["rank", "ap"]
+  metric: "rank" # ["rank", "ap", "all"]
   criteria: "top_k" # ["top_k", "clip_threshold"]
   clip_threshold: 0.5
-  top_k: 10
+  top_k: 20
   iou_threshold: 0.25 # used for rank only
 
 model:
   device: "cuda"
   type: open_clip
-  backbone:  ViT-H-14 # ViT-L/14@336px # ViT-H-14
+  backbone: ViT-H-14 # ViT-L/14@336px # ViT-H-14
   checkpoint: laion2b_s32b_b79k # options: 'laion2b_s32b_b79k', 'metaclip_fullcc', 'metaclip_altogether', 'dfn5b'
