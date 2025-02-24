@@ -3,7 +3,7 @@
 ALGORITHM=$1
 
 for n in 1 5 10
-# for n in 10
+# for n in 1
 do
     # for sequence in room0
     for sequence in room0 room1 room2 office0 office1 office2 office3 office4

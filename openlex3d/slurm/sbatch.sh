@@ -14,6 +14,7 @@
 
 
 module load python/3.10
+export SSL_CERT_DIR=/etc/ssl/certs
 source $HOME/venvs/openlex3d/bin/activate
 
 ol3_evaluate "$@"

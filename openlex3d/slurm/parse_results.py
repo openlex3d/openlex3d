@@ -17,6 +17,7 @@ for result_file in base_path.rglob("results.yaml"):
     algorithm = result_file.parts[-5]
     with open(result_file, "r") as f:
         result = yaml.load(f, Loader=yaml.FullLoader)
+        result = result["iou"] # Only take IOU results
         result.update(
             dict(algorithm=algorithm, dataset=dataset, scene=scene, top_n=top_n)
         )

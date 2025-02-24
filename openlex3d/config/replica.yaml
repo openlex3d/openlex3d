@@ -10,12 +10,14 @@ evaluation:
   predictions_path: /network/scratch/s/sacha.morin/openlex/predictions/${evaluation.algorithm}/${dataset.name}/${dataset.scene}
   algorithm: concept-graphs
   voxel_downsampling_size: 0.05
-  output_path: /network/scratch/s/sacha.morin/openlex/results
+  output_path: /home/mila/k/kumaraditya.gupta/scratch/openlex/results
+  iou: True
+  set_ranking: False
   excluded_labels:
     ["wall", "floor", "ceiling", "doorframe", "ledge", "windowledge"]
 
 model:
   device: "cpu"
-  type: open_clip # openai_clip (for openscene) / open_clip
-  backbone: ViT-H-14 # ViT-L/14@336px (openscene) # ViT-H-14
+  type: openai_clip # openai_clip (for openscene) / open_clip
+  backbone: ViT-L/14@336px # ViT-L/14@336px (openscene) # ViT-H-14
   checkpoint: laion2b_s32b_b79k # options: 'laion2b_s32b_b79k', 'metaclip_fullcc', 'metaclip_altogether', 'dfn5b'

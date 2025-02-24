@@ -56,17 +56,18 @@ def main(config: DictConfig):
 
         results = {}
         # Compute metric (intersection over union)
-        iou_results, pred_categories, point_labels, point_categories = (
-            metric.intersection_over_union_topn(
-                pred_cloud=pred_cloud,
-                pred_labels=pred_labels,
-                gt_cloud=gt_cloud,
-                gt_ids=gt_ids,
-                gt_labels_handler=openlex3d_gt_handler,
-                excluded_labels=config.evaluation.excluded_labels,
+        if config.evaluation.iou:
+            iou_results, pred_categories, point_labels, point_categories = (
+                metric.intersection_over_union_topn(
+                    pred_cloud=pred_cloud,
+                    pred_labels=pred_labels,
+                    gt_cloud=gt_cloud,
+                    gt_ids=gt_ids,
+                    gt_labels_handler=openlex3d_gt_handler,
+                    excluded_labels=config.evaluation.excluded_labels,
+                )
             )
-        )
-        results[f"iou_top_{config.evaluation.topn}"] = iou_results
+            results[f"iou"] = iou_results
 
         if config.evaluation.set_ranking:
             set_ranking_results = metric.set_based_ranking(pred_cloud=pred_cloud,
