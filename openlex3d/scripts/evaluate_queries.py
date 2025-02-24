@@ -18,6 +18,7 @@ from openlex3d.core.rank_metric import evaluate_rank
 from openlex3d.core.align_masks import get_pred_mask_indices_gt_aligned
 from openlex3d.core.cosine_similarity import compute_normalized_cosine_similarities
 
+
 logger = logging.getLogger(__name__)
 
 
@@ -87,6 +88,7 @@ def create_gt_instances(all_gt_mask_indices, query_list):
             if mask_indices is None or len(mask_indices) < opt["min_region_sizes"]:
                 continue
             gt_inst = {
+                "uuid": str(uuid4()),
                 "instance_id": int(obj_req),
                 "label_id": 1,
                 "vert_count": len(mask_indices),
@@ -278,6 +280,11 @@ def assign_instances_for_scene(scene_id, gt_instances, pred_instances):
                 pred_copy["intersection"] = intersection
                 gt["matched_pred"].append(pred_copy)
                 pred["matched_gt"].append(gt_copy)
+
+                # gt["intersection"] = intersection
+                # pred["intersection"] = intersection
+                # gt["matched_pred"].append(pred["uuid"])
+                # pred["matched_gt"].append(gt["uuid"])
 
     # Track matches after intersection check
     for gt in gt_instances:

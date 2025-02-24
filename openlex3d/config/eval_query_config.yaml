@@ -1,17 +1,15 @@
 # @package _global_
 
-output_path: /home/kumaraditya/openlex3d/query_experiments_v3
+defaults:
+  - dataset: replica
+
+output_path: /home/kumaraditya/openlex3d/query_experiments_v3_debug
 hydra:
   run:
     dir: ${output_path}/logs/${eval.metric}/${dataset.name}/${now:%Y-%m-%d-%H-%M-%S}
 
-dataset:
-  name: replica
-  scenes: ["room0"]
-  path: /home/kumaraditya/datasets/Replica_original
-
 pred:
-  method: concept-graphs
+  method: openmask3d_duplicated
   path: /home/kumaraditya/openlex_results/${pred.method}/${dataset.name}
 
 query:

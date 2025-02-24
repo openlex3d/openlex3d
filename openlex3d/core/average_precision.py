@@ -67,6 +67,15 @@ def evaluate_matches(matches):
                         found_match = False
                         # num_pred = len(gt["matched_pred"])
                         for pred in gt["matched_pred"]:
+                            # get pred with pred_id
+                            # pred = next(
+                            #     (
+                            #         pred
+                            #         for pred in pred_instances
+                            #         if pred["uuid"] == pred_uuid
+                            #     ),
+                            #     None,
+                            # )
                             # greedy assignments
                             if pred_visited[pred["uuid"]]:
                                 continue
@@ -103,6 +112,10 @@ def evaluate_matches(matches):
                     for pred in pred_instances:
                         found_gt = False
                         for gt in pred["matched_gt"]:
+                            # gt = next(
+                            #     (gt for gt in gt_instances if gt["uuid"] == gt_uuid),
+                            #     None,
+                            # )
                             overlap = float(gt["intersection"]) / (
                                 gt["vert_count"]
                                 + pred["vert_count"]

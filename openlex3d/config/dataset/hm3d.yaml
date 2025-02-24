@@ -1,0 +1,3 @@
+name: hm3d
+scenes: ["00824", "00829", "00843", "00847", "00873", "00877", "00890"]
+path: /home/kumaraditya/datasets/hm3d_compressed
