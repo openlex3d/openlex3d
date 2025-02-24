@@ -15,5 +15,6 @@
 
 module load anaconda/3
 conda activate o3d
+cd $HOME/openlex3d
 
 python -m openlex3d.scripts.evaluate_queries "$@"
