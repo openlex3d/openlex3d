@@ -156,7 +156,7 @@ def save_results(
         yaml.dump(results, file, default_flow_style=False)
 
 
-def load_query_json(jsons_path, dataset, scene):
+def load_query_json(cfg, dataset, scene):
     """
     Loads the query JSON file.
     Expected format:
@@ -166,11 +166,13 @@ def load_query_json(jsons_path, dataset, scene):
     }
     We'll flatten this to a list of dicts.
     """
+    jsons_path = cfg.path
+    level = cfg.level
     query_json_file = str(
         Path(jsons_path)
         / dataset
         / scene
-        / "gt_categories_query_to_object_mapping.json"
+        / f"gt_categories_query_to_object_mapping_{level}.json"
     )
     with open(query_json_file, "r") as f:
         queries = json.load(f)
@@ -189,8 +191,15 @@ def load_query_json(jsons_path, dataset, scene):
 
 def load_all_predictions(predictions_path, scene_name):
     pcd_path = Path(predictions_path) / scene_name / "point_cloud.pcd"
+    if not pcd_path.exists(): # hovsg edit
+        pcd_path = Path(predictions_path) / scene_name / "input.ply"
+
     masks_path = Path(predictions_path) / scene_name / "index.npy"
     features_path = Path(predictions_path) / scene_name / "embeddings.npy"
+
+    assert pcd_path.exists()
+    assert masks_path.exists()
+    assert features_path.exists()
 
     pcd = load_pcd(str(pcd_path))
     masks = load_mask_indices(str(masks_path))

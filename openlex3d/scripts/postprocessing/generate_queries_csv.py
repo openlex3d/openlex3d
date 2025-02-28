@@ -17,7 +17,7 @@ def gather_json_data(root_dir):
 
     for json_file in Path(root_dir).rglob("*.json"):
         # Only process files named "results.json" to skip other JSONs
-        if json_file.name != "results.json":
+        if (json_file.name != "results.json"):
             continue
 
         with open(json_file, "r") as f:
@@ -29,6 +29,7 @@ def gather_json_data(root_dir):
         pred_cfg = cfg_data.get("pred", {})
         masks_cfg = cfg_data.get("masks", {})
         eval_cfg = cfg_data.get("eval", {})
+        query_cfg = cfg_data.get("query", {})
 
         # Extract relevant info for CSV
         dataset_name = dataset_cfg.get("name")
@@ -41,6 +42,7 @@ def gather_json_data(root_dir):
         clip_threshold = eval_cfg.get("clip_threshold")
         top_k = eval_cfg.get("top_k")
         iou_threshold = eval_cfg.get("iou_threshold")
+        query_level = query_cfg.get("level")
 
         # The results for overall and per‐scene are under data["results"]
         results_data = data.get("results", {})
@@ -60,6 +62,7 @@ def gather_json_data(root_dir):
             "clip_threshold": clip_threshold,
             "top_k": top_k,
             "iou_threshold": iou_threshold,
+            "query_level": query_level,
             # For AP metrics (may be absent if metric is rank):
             "all_ap": overall.get("all_ap"),
             "all_ap_50%": overall.get("all_ap_50%"),
@@ -81,6 +84,7 @@ def gather_json_data(root_dir):
                 "clip_threshold": clip_threshold,
                 "top_k": top_k,
                 "iou_threshold": iou_threshold,
+                "query_level": query_level,
                 # Add the scene ID:
                 "scene_id": scene_id,
                 # For AP metrics:
@@ -121,6 +125,7 @@ def main():
         "clip_threshold",
         "top_k",
         "iou_threshold",
+        "query_level",
         "all_ap",
         "all_ap_50%",
         "all_ap_25%",
@@ -138,6 +143,7 @@ def main():
         "clip_threshold",
         "top_k",
         "iou_threshold",
+        "query_level",
         "scene_id",
         "all_ap",
         "all_ap_50%",

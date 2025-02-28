@@ -328,7 +328,7 @@ def get_matches_for_scene(cfg, scene_id):
 
     # Load queries
     logger.info("Loading queries")
-    query_list = load_query_json(cfg.query.path, cfg.dataset.name, scene_id)
+    query_list = load_query_json(cfg.query, cfg.dataset.name, scene_id)
 
     # Get all GT mask indices and create GT instances
     logger.info("Creating GT instances")
