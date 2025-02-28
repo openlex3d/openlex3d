@@ -62,17 +62,23 @@ def process_scene_labels(input_path):
 
     base_name = Path(input_path).stem
     base_path = Path(input_path).parent
-    scene_queries_output_path = base_path / f"{base_name}_w_queries_l1.json"
-    query_mapping_output_path = (
-        base_path / f"{base_name}_query_to_object_mapping_l1.json"
-    )
+    scene_queries_output_path = base_path / f"{base_name}_w_queries.json"
+    query_mapping_all_output_path = base_path / f"{base_name}_query_to_object_mapping_all.json"
+    query_mapping_l0_output_path = base_path / f"{base_name}_query_to_object_mapping_l0.json"
+    query_mapping_l1_output_path = base_path / f"{base_name}_query_to_object_mapping_l1.json"
 
     updated_scene_data = add_queries_to_scene(data)
 
     query_mapping = build_query_to_obj_mapping(updated_scene_data)
 
+    # Separate level0 and level1 mappings
+    query_mapping_l0 = {"level0": query_mapping["level0"]}
+    query_mapping_l1 = {"level1": query_mapping["level1"]}
+
     save_json(updated_scene_data, scene_queries_output_path)
-    save_json(query_mapping, query_mapping_output_path)
+    save_json(query_mapping, query_mapping_all_output_path)
+    save_json(query_mapping_l0, query_mapping_l0_output_path)
+    save_json(query_mapping_l1, query_mapping_l1_output_path)
 
     return
 
