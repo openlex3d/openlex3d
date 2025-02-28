@@ -361,9 +361,11 @@ def get_matches_for_scene(cfg, scene_id):
     viz_path = (
         Path(cfg.output_path)
         / "viz"
+        / cfg.query.level
         / cfg.dataset.name
         / scene_id
-        / f"{cfg.pred.method}_{cfg.masks.alignment_mode}_{cfg.masks.alignment_threshold}_{cfg.eval.criteria}_{cfg.eval.clip_threshold}_{cfg.eval.top_k}"
+        / cfg.pred.method
+        / f"{cfg.masks.alignment_mode}_{cfg.masks.alignment_threshold}_{cfg.eval.criteria}_{cfg.eval.clip_threshold}_{cfg.eval.top_k}"
     )
 
     viz_path.mkdir(parents=True, exist_ok=True)
@@ -428,9 +430,10 @@ def main(cfg: DictConfig):
         ranks_output_path = (
             Path(cfg.output_path)
             / "rank_metric"
+            / cfg.query.level
             / cfg.dataset.name
-            / f"{cfg.pred.method}_{cfg.masks.alignment_mode}_"
-            f"{cfg.masks.alignment_threshold}_{cfg.eval.top_k}_{cfg.eval.iou_threshold}"
+            / cfg.pred.method
+            / f"{cfg.masks.alignment_mode}_{cfg.masks.alignment_threshold}_{cfg.eval.top_k}_{cfg.eval.iou_threshold}"
         )
         ranks_output_path.mkdir(parents=True, exist_ok=True)
         pickle.dump(
@@ -448,8 +451,10 @@ def main(cfg: DictConfig):
         ap_output_path = (
             Path(cfg.output_path)
             / "ap_metric"
+            / cfg.query.level
             / cfg.dataset.name
-            / f"{cfg.pred.method}_{cfg.masks.alignment_mode}_{cfg.masks.alignment_threshold}_{cfg.eval.criteria}_{cfg.eval.clip_threshold}_{cfg.eval.top_k}"
+            / cfg.pred.method
+            / f"{cfg.masks.alignment_mode}_{cfg.masks.alignment_threshold}_{cfg.eval.criteria}_{cfg.eval.clip_threshold}_{cfg.eval.top_k}"
         )
         ap_output_path.mkdir(parents=True, exist_ok=True)
         pickle.dump(metric_dict, open(ap_output_path / "ap_metrics.pkl", "wb"))
