@@ -40,10 +40,29 @@ def load_dataset(config: DictConfig, load_openlex3d: bool = False):
 
     openlex3d_gt_handler = None
     if load_openlex3d:
-        assert (
-            config.openlex3d_path
-        ), "dataset.openlex3d_path not defined, check your config"
+        # Load 'visible' point cloud (if exists)
+        gt_cloud, original_gt_labels = load_openlex3d_visible_cloud(
+            config, gt_cloud, original_gt_labels
+        )
 
+        # Load openlex3d labels
+        openlex3d_gt_handler = load_openlex3d_labels_handler(
+            name=config.name, scene=config.scene, base_path=config.openlex3d_path
+        )
+
+    return gt_cloud, original_gt_labels, openlex3d_gt_handler
+
+
+def load_openlex3d_visible_cloud(
+    config: DictConfig, gt_cloud: o3d.t.geometry.PointCloud, gt_labels: np.ndarray
+):
+    assert (
+        config.openlex3d_path
+    ), "dataset.openlex3d_path not defined, check your config"
+
+    try:
+        # We try to check if a visible point cloud exists
+        # Some datasets do not need it
         gt_visible_cloud = load_openlex3d_cloud(
             name=config.name, scene=config.scene, base_path=config.openlex3d_path
         )
@@ -55,23 +74,15 @@ def load_dataset(config: DictConfig, load_openlex3d: bool = False):
         # We use BallTree data association
         ball_tree = BallTree(gt_points)
         distances, indices = ball_tree.query(gt_visible_points, k=1)
-        gt_instance_labels = np.full(gt_visible_points.shape[0], -1)
+        gt_visible_labels = np.full(gt_visible_points.shape[0], -1)
 
         mask_valid = distances.flatten() < GT_DATA_ASSOCIATION_THR
-        gt_instance_labels[mask_valid] = original_gt_labels[
-            indices.flatten()[mask_valid]
-        ]
+        gt_visible_labels[mask_valid] = gt_labels[indices.flatten()[mask_valid]]
+        return gt_visible_cloud, gt_visible_labels
 
-        # Reassign the outputs
-        gt_cloud = gt_visible_cloud
-        original_gt_labels = gt_instance_labels
-
-        # Load openlex3d labels
-        openlex3d_gt_handler = load_openlex3d_labels_handler(
-            name=config.name, scene=config.scene, base_path=config.openlex3d_path
-        )
-
-    return gt_cloud, original_gt_labels, openlex3d_gt_handler
+    except Exception:
+        # If the visible point cloud does not exist, we return the original cloud and labels
+        return gt_cloud, gt_labels
 
 
 def load_openlex3d_cloud(name: str, scene: str, base_path: str):

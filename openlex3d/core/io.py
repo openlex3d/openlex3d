@@ -1,21 +1,20 @@
-import json
-import os
+import itertools
+from pathlib import Path
+from typing import Any, Dict, List
+
 import numpy as np
 import open3d as o3d
-import itertools
 import yaml
-
-from typing import List, Dict, Any
-from pathlib import Path
+from omegaconf import DictConfig
 from sklearn.neighbors import NearestNeighbors
+
 from openlex3d.core.categories import get_color
 
-
-SEGMENTS_ANNOTATION_FILE = "segments_anno.json"
 PROMPT_LIST_FILE = "prompt_list.txt"
 
-FEATURES_ALLOWED_FORMATS = ["*.npy", "*.npz"]
 CLOUD_ALLOWED_FORMATS = ["*.pcd", "*.ply"]
+FEATURE_FILE = "embeddings.npy"
+INDEX_FILE = "index.npy"
 
 
 def load_predicted_features(
@@ -23,70 +22,23 @@ def load_predicted_features(
 ):
     # Prepare paths
     pred_root = Path(predictions_path)
-    feat_path = list(
-        itertools.chain.from_iterable(
-            pred_root.glob(pattern) for pattern in FEATURES_ALLOWED_FORMATS
-        )
-    )[0]
-    assert feat_path.exists()
+    feat_path = pred_root / FEATURE_FILE
+    assert feat_path.exists(), f"Features file {feat_path} does not exist"
 
     cloud_path = list(
         itertools.chain.from_iterable(
             pred_root.glob(pattern) for pattern in CLOUD_ALLOWED_FORMATS
         )
     )[0]
-    assert cloud_path.exists()
+    assert cloud_path.exists(), f"Point cloud file {cloud_path} does not exist"
 
-    segment_annotation_path = pred_root / SEGMENTS_ANNOTATION_FILE
-    assert segment_annotation_path.exists()
-
-    # Load mask_feats
-    pred_feats = np.load(feat_path)
-
-    # TODO Note (matias): this is hacky, why is it needed?
-    # It seems like a patch for a corner case
-    file_ext = os.path.splitext(feat_path)[1]
-    if file_ext == ".npz":
-        pred_feats = pred_feats["arr_0"]
-
-    # Get dimensions of predicted features array
-    B, D = pred_feats.shape
+    index_file = pred_root / INDEX_FILE
+    assert index_file.exists(), f"Index file {index_file} does not exist"
 
     # Load predicted cloud
     pred_cloud = o3d.t.io.read_point_cloud(cloud_path)
     points = pred_cloud.point.positions.numpy()
     N = len(points)
-
-    # Load segment annotations
-    with open(segment_annotation_path, "r") as f:
-        segment_annotations = json.load(f)
-
-    # Note (matias): It would be nice to redesign the code below
-    # The main problem I see is that it copies features into a list
-    # so we have a dynamic array there. Perhaps there is some array
-    # operation we can do instead
-    mask_feats = np.full((N, D), -1, dtype=np.float32)
-
-    for group in segment_annotations["segGroups"]:
-        objectId = group["objectId"]
-        feat = pred_feats[objectId]
-        for segment in group["segments"]:
-            if segment < len(mask_feats):
-                mask_feats[segment] = feat
-
-    filtered_mask_feats = []
-    filtered_points = []
-    for feat, point in zip(mask_feats, points):
-        if not np.all(feat == -1):
-            filtered_mask_feats.append(feat)
-            filtered_points.append(point)
-
-    filtered_mask_feats = np.array(filtered_mask_feats)
-    filtered_points = np.array(filtered_points)
-
-    # Apply mask
-    pred_cloud.point.positions = np.array(filtered_points)
-    pred_feats = np.array(filtered_mask_feats)
 
     # Post-processing of the predicted cloud
     # Downsampling the cloud and discarding corresponding features
@@ -95,21 +47,36 @@ def load_predicted_features(
     nbrs = NearestNeighbors(n_neighbors=1, algorithm="auto").fit(
         pred_cloud.point.positions.numpy()
     )
-    distances, indices = nbrs.kneighbors(points)
-    pred_feats = pred_feats[indices[:, 0]]
+    _, keep_indices = nbrs.kneighbors(points)
+    keep_indices = keep_indices.flatten()
     pred_cloud = downsampled_pcd
+
+    # Load features
+    pred_feats_mask = np.load(feat_path)  # (n_objects, D)
+    pcd_to_mask = np.load(index_file).astype(int)  # (n_points,)
+
+    # Make sure pcd_to_mask indices has the same length as the number of points in original cloud
+    assert (
+        len(pcd_to_mask) == N
+    ), f"Length of index.npy ({len(pcd_to_mask)}) does not match the number of points in the predicted point cloud ({N})"
+
+    # Assign features to points
+    pcd_to_mask = pcd_to_mask[keep_indices]
+    pred_feats = pred_feats_mask[pcd_to_mask, :]
 
     return pred_cloud, pred_feats
 
 
-def load_prompt_list(base_path: str):
+def load_prompt_list(config: DictConfig):
     """
     Read semantic classes for replica dataset
     :param gt_labels_path: path to ground truth labels txt file
     :return: class id names
     """
 
-    prompt_list_path = Path(base_path, PROMPT_LIST_FILE)
+    prompt_list_path = Path(
+        config.dataset.openlex3d_path, config.dataset.name, PROMPT_LIST_FILE
+    )
     assert prompt_list_path.exists()
 
     with open(str(prompt_list_path), "r") as f:
@@ -127,12 +94,19 @@ def save_results(
     dataset: str,
     scene: str,
     algorithm: str,
+    point_labels: np.ndarray,
+    point_categories: np.ndarray,
     reference_cloud: o3d.t.geometry.PointCloud,
     pred_categories=List[str],
     results=Dict[str, Any],
 ):
+    output_path = Path(output_path, algorithm, dataset, scene)
+
+    # Create output path
+    output_path.mkdir(parents=True, exist_ok=True)
+
     # Prepare outputh path
-    output_cloud = Path(output_path, f"{dataset}_{scene}_{algorithm}.pcd")
+    output_cloud = Path(output_path, "point_cloud.pcd")
 
     # Map categories to colors
     colors = np.array(
@@ -141,19 +115,29 @@ def save_results(
 
     # Reconstruct output cloud
     cloud = reference_cloud.clone()
-    cloud.point.colors = o3d.core.Tensor(colors / 255.0)
+    cloud.point.colors = o3d.core.Tensor(colors)
 
     assert cloud.point.positions.shape[0] > 0
     assert cloud.point.colors.shape[0] > 0
 
     # Save
-    o3d.t.io.write_point_cloud(str(output_cloud), cloud)
+    o3d.io.write_point_cloud(str(output_cloud), cloud.to_legacy())
+
+    # o3d.visualization.draw_geometries([cloud.to_legacy()])
 
     # Prepare results yaml file
-    output_results = Path(output_path, f"{dataset}_{scene}_{algorithm}_result.yaml")  # noqa
+    output_results = Path(output_path, "results.yaml")
 
     with open(str(output_results), "w") as file:
         yaml.dump(results, file, default_flow_style=False)
+        
+    # Save predicted labels for each point
+    output_labels = Path(output_path, "point_labels.npy")
+    np.save(output_labels, point_labels)
+
+    # Save predicted category for each label of each point
+    output_categories = Path(output_path, "point_categories.npy")
+    np.save(output_categories, point_categories)
 
 
 def load_query_json(cfg, dataset, scene):

@@ -1,6 +1,10 @@
 import copy
 import json
 import os
+
+import sys
+from collections import defaultdict
+
 from pathlib import Path
 
 import networkx as nx
@@ -8,6 +12,9 @@ import numpy as np
 import open3d as o3d
 import torch
 from PIL import ImageColor
+
+from scipy.optimize import linear_sum_assignment
+
 from torchmetrics.functional import pairwise_cosine_similarity
 
 
@@ -38,17 +45,10 @@ class PanopticLevelEval:
         return f"{self.id}"
 
 
-class PanopticRegionEval:
-    def __init__(
-        self,
-        region_id,
-        floor_id,
-        category,
-        voted_category,
-        min_height,
-        max_height,
-        mean_height,
-    ):
+
+class PanopticRegionEval():
+    def __init__(self, region_id, floor_id, category, voted_category, min_height, max_height, mean_height):
+
         self.id = region_id
         self.floor_id = floor_id
         self.voted_category = voted_category
@@ -67,7 +67,8 @@ class PanopticRegionEval:
         return f"{self.floor_id}_{self.id}"
 
 
-class PanopticObjectEval:
+
+class PanopticObjectEval():
     def __init__(self, object_id, region_id, floor_id, category, hex):
         # semantics object info
         self.id = object_id
@@ -100,22 +101,19 @@ class PanopticObjectEval:
         self.clutter = []
 
     def __str__(self) -> str:
-        if any(
-            [len(self.synonyms) > 0, len(self.vis_sim) > 0, len(self.depictions) > 0]
-        ):
+        if any([len(self.synonyms) > 0, len(self.vis_sim) > 0, len(self.depictions) > 0]):
             return f"obj_id: {self.id}, category: {self.category}, region_id: {self.region_id}, synonyms: {self.synonyms}, vis_sim: {self.vis_sim}, depictions: {self.depictions}"
-        else:
+        else: 
             return f"obj_id: {self.id}, category: {self.category}, region_id: {self.region_id}"
-
+    
     def __repr__(self) -> str:
         return self.__str__()
-
+    
     def get_colored_pcd(self):
         colored_pcd = copy.copy(self.pcd)
-        colored_pcd.colors = o3d.utility.Vector3dVector(
-            np.tile(self.rgb, (len(self.points), 1)) / 255.0
-        )
+        colored_pcd.colors = o3d.utility.Vector3dVector(np.tile(self.rgb, (len(self.points), 1)) / 255.0)
         return colored_pcd
+    
 
 
 class HM3DSemanticGT:
@@ -139,9 +137,7 @@ class HM3DSemanticGT:
 
         for level_info in scene_info["levels"]:
             level_id = level_info["id"]
-            floor = PanopticLevelEval(
-                level_id, level_info["lower"], level_info["upper"]
-            )
+            floor = PanopticLevelEval(level_id, level_info["lower"], level_info["upper"])
             floor.regions = level_info["regions"]
             floor.objects = level_info["objects"]
 
@@ -171,16 +167,9 @@ class HM3DSemanticGT:
 
         for obj_info in scene_info["objects"]:
             obj = PanopticObjectEval(
-                obj_info["id"],
-                obj_info["region_id"],
-                obj_info["floor_id"],
-                obj_info["category"],
-                obj_info["hex"],
+                obj_info["id"], obj_info["region_id"], obj_info["floor_id"], obj_info["category"], obj_info["hex"]
             )
-            obj.aabb_center, obj.aabb_dims = (
-                obj_info["aabb_center"],
-                obj_info["aabb_dims"],
-            )
+            obj.aabb_center, obj.aabb_dims = obj_info["aabb_center"], obj_info["aabb_dims"]
             obj.obb_center, obj.obb_dims = obj_info["obb_center"], obj_info["obb_dims"]
             obj.obb_rotation = obj_info["obb_rotation"]
             obj.obb_local_to_world = obj_info["obb_local_to_world"]
@@ -190,9 +179,7 @@ class HM3DSemanticGT:
 
             # load points from object pcd under self.gt_scene_infos_path + "/objects"
             obj_pcd_path = os.path.join(
-                os.path.dirname(self.gt_scene_infos_path),
-                "objects",
-                str(obj_info["id"]) + ".ply",
+                os.path.dirname(self.gt_scene_infos_path), "objects", str(obj_info["id"]) + ".ply"
             )
             obj.pcd = o3d.io.read_point_cloud(obj_pcd_path)
             obj.points = np.asarray(obj.pcd.points)
@@ -203,19 +190,11 @@ class HM3DSemanticGT:
 
         print("----------------------------")
         print("GT graph loaded:")
-        print(
-            "Number of GT floors: ",
-            len([node for node in self.gt_graph.nodes if node.type == "floor"]),
-        )
-        print(
-            "Number of GT rooms: ",
-            len([node for node in self.gt_graph.nodes if node.type == "room"]),
-        )
-        print(
-            "Number of GT objects: ",
-            len([node for node in self.gt_graph.nodes if node.type == "object"]),
-        )
+        print("Number of GT floors: ", len([node for node in self.gt_graph.nodes if node.type == "floor"]))
+        print("Number of GT rooms: ", len([node for node in self.gt_graph.nodes if node.type == "room"]))
+        print("Number of GT objects: ", len([node for node in self.gt_graph.nodes if node.type == "object"]))
         print("----------------------------")
+
 
     def add_synoym_labels(self, syn_path):
         self.synonym_labels_path = syn_path
@@ -224,41 +203,27 @@ class HM3DSemanticGT:
             synonym_labels = json.load(file)
 
         for syn_obj in synonym_labels["dataset"]["samples"]:
-            self.gt_objects[syn_obj["object_id"]].synonyms = syn_obj["labels"][
-                "image_attributes"
-            ]["synonyms"]
-            self.gt_objects[syn_obj["object_id"]].vis_sim = syn_obj["labels"][
-                "image_attributes"
-            ]["vis_sim"]
-            self.gt_objects[syn_obj["object_id"]].depictions = syn_obj["labels"][
-                "image_attributes"
-            ]["depictions"]
+            self.gt_objects[syn_obj["object_id"]].synonyms = syn_obj["labels"]["image_attributes"]["synonyms"]
+            self.gt_objects[syn_obj["object_id"]].vis_sim = syn_obj["labels"]["image_attributes"]["vis_sim"]
+            self.gt_objects[syn_obj["object_id"]].depictions = syn_obj["labels"]["image_attributes"]["depictions"]
+    
 
     def object_semantics_eval_tp_auc(
-        self,
-        top_k_spec,
-        row_ind,
-        col_ind,
-        pred_objects,
-        gt_objects,
-        gt_text_feats,
-        gt_classes,
+        self, top_k_spec, row_ind, col_ind, pred_objects, gt_objects, gt_text_feats, gt_classes
     ):
         success_k = {k: list() for k in top_k_spec}
         for pred_idx, gt_idx in zip(row_ind, col_ind):
             # dot_sim = np.dot(pred_objects[pred_idx].embedding, gt_text_feats.T)
             dot_sim = (
                 pairwise_cosine_similarity(
-                    torch.from_numpy(
-                        pred_objects[pred_idx].embedding.reshape(1, -1)
-                    ).float(),
+                    torch.from_numpy(pred_objects[pred_idx].embedding.reshape(1, -1)).float(),
                     torch.from_numpy(gt_text_feats).float(),
                 )
                 .squeeze(0)
                 .numpy()
             )
             # sort the dot similarity scores in descending order
-            _ = np.sort(dot_sim)[::-1]
+            sorted_dot_similarity = np.sort(dot_sim)[::-1]
             for k in top_k_spec:
                 top_k_idx = np.argsort(dot_sim)[::-1][:k]
                 # get names of top k classes
@@ -271,10 +236,10 @@ class HM3DSemanticGT:
         tp_top_k_auc = np.trapz(list(top_k_acc.values()), norm_top_k)
         return top_k_acc, tp_top_k_auc
 
+    
+
     def get_rgb_pointcloud(self) -> o3d.geometry.PointCloud:
         """
-        Returns a point cloud with all objects colored by their original RGB values
-
         Returns:
             o3d.geometry.PointCloud: Point cloud with all objects colored by their original RGB values
             Dict[int, PanopticObjectEval]: Dictionary of all objects with object id as key
@@ -286,21 +251,18 @@ class HM3DSemanticGT:
             self.rgb_pcd += obj.pcd
         return self.rgb_pcd, self.gt_objects
 
+
     def get_panoptic_pointcloud(self) -> o3d.geometry.PointCloud:
         """
-        Returns a point cloud with all objects colored by their respective instance RGB values.
-
         Returns:
             o3d.geometry.PointCloud: Point cloud with all objects colored by their original RGB values
             Dict[int, PanopticObjectEval]: Dictionary of all objects with object id as key
         """
 
         return self.panoptic_pcd, self.gt_objects
+    
 
-
-def load_dataset(
-    name: str = None, scene: str = None, base_path: str = None
-) -> tuple[o3d.t.geometry.PointCloud, np.ndarray]:
+def load_dataset(name: str = None, scene: str = None, base_path: str = None) -> tuple[o3d.t.geometry.PointCloud, np.ndarray]:
     """
     Load the HM3DSemantics-walks ground truth point cloud and instance labels
 
@@ -316,9 +278,7 @@ def load_dataset(
 
     assert name, "dataset name not defined, please provide a dataset name"
     assert scene, "scene not defined, please provide a given scene identifier"
-    assert (
-        base_path
-    ), "dataset.path not defined, please add a path to the HM3DSemantics-walks dataset"
+    assert base_path, "dataset.path not defined, please add a path to the HM3DSemantics-walks dataset"
 
     dataset_root = Path(base_path, f"{scene}")
 
@@ -329,7 +289,7 @@ def load_dataset(
     hm3d_gt.load_gt_graph_from_json(gt_scene_info_path)
     assert len(hm3d_gt.gt_objects) > 0, "GT objects not loaded"
 
-    gt_instance_labels = list()
+    gt_instance_labels = list() 
     points, colors = list(), list()
 
     for obj_id, obj in hm3d_gt.gt_objects.items():
@@ -341,19 +301,17 @@ def load_dataset(
     gt_cloud = o3d.t.geometry.PointCloud(o3d.core.Tensor(np.concatenate(points)))
     gt_cloud.point.colors = o3d.core.Tensor(np.concatenate(colors))
     gt_instance_labels = np.concatenate(gt_instance_labels)
-    assert gt_instance_labels.shape[0] == len(
-        gt_cloud.point.positions
-    ), "Length of GT instance labels does not match number of cloud points"
+    
+    assert gt_instance_labels.shape[0] == len(gt_cloud.point.positions), "Length of GT instance labels does not match number of cloud points"
 
     return gt_cloud, gt_instance_labels
-
-
-def load_dataset_with_obj_ids(name: str, scene: str, base_path: str):
+  
+  
+def load_dataset_with_obj_ids(name: str = None, scene: str = None, base_path: str = None) -> tuple[o3d.t.geometry.PointCloud, np.ndarray]:
+  
     assert name, "dataset name not defined, please provide a dataset name"
     assert scene, "scene not defined, please provide a given scene identifier"
-    assert (
-        base_path
-    ), "dataset.path not defined, please add a path to the HM3DSemantics-walks dataset"
+    assert base_path, "dataset.path not defined, please add a path to the HM3DSemantics-walks dataset"
 
     dataset_root = Path(base_path, f"{scene}")
 
@@ -364,7 +322,7 @@ def load_dataset_with_obj_ids(name: str, scene: str, base_path: str):
     hm3d_gt.load_gt_graph_from_json(gt_scene_info_path)
     assert len(hm3d_gt.gt_objects) > 0, "GT objects not loaded"
 
-    gt_instance_labels = list()
+    gt_instance_labels = list() 
     points, colors = list(), list()
 
     for obj_id, obj in hm3d_gt.gt_objects.items():
@@ -376,23 +334,20 @@ def load_dataset_with_obj_ids(name: str, scene: str, base_path: str):
     gt_cloud = o3d.t.geometry.PointCloud(o3d.core.Tensor(np.concatenate(points)))
     gt_cloud.point.colors = o3d.core.Tensor(np.concatenate(colors))
     gt_instance_labels = np.concatenate(gt_instance_labels)
-    assert gt_instance_labels.shape[0] == len(
-        gt_cloud.point.positions
-    ), "Length of GT instance labels does not match number of cloud points"
+    
+    assert gt_instance_labels.shape[0] == len(gt_cloud.point.positions), "Length of GT instance labels does not match number of cloud points"
 
     return gt_cloud, gt_instance_labels
 
-
 if __name__ == "__main__":
-    cloud, labels = load_dataset(
-        "hm3dsem_walks", "00824-Dd4bFSTQ8gi", "/home/buechner/data/hm3dsem_walks/val"
-    )
+
+    cloud, labels = load_dataset("hm3dsem_walks", "00824-Dd4bFSTQ8gi", "/home/buechner/data/hm3dsem_walks/val")
     o3d.visualization.draw([cloud])
 
     # use of HM3DSem GT class for reference
-    ("/home/buechner/data/hm3dsem_walks/val/00824-Dd4bFSTQ8gi/scene_info.json",)
-    "/home/buechner/ovsg-dataset/merged_labels/hm3d/00824/hm3dsem_00824_merged_reviewed.json"
-
+    "/home/buechner/data/hm3dsem_walks/val/00824-Dd4bFSTQ8gi/scene_info.json", 
+    "/home/buechner/ovsg-dataset/merged_labels/hm3d/00824/hm3dsem_00824_merged_reviewed.json"  
+    
     # gt_path = sys.argv[1] # provide hm3dsem_walks GT JSON path
     # syn_path = sys.argv[2] # read in synonym labels
 
@@ -411,3 +366,4 @@ if __name__ == "__main__":
     # # get panoptic point cloud
     # panoptic_pcd = hm3d_gt.get_panoptic_pointcloud()
     # o3d.visualization.draw_geometries([panoptic_pcd])
+

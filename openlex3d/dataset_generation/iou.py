@@ -7,7 +7,7 @@ Taken from Objectron: https://github.com/google-research-datasets/Objectron/blob
 import numpy as np
 import scipy.spatial as sp
 
-import utils.box as Box
+import openlex3d.dataset_generation.box as Box
 
 _PLANE_THICKNESS_EPSILON = 0.000001
 _POINT_IN_FRONT_OF_PLANE = 1
