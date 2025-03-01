@@ -75,8 +75,10 @@ def main(cfg: DictConfig):
     ap_output_path = (
         Path(cfg.output_path)
         / "ap_metric"
+        / cfg.query.level
         / cfg.dataset.name
-        / f"{cfg.pred.method}_{cfg.masks.alignment_mode}_{cfg.masks.alignment_threshold}_{cfg.eval.criteria}_{cfg.eval.clip_threshold}_{cfg.eval.top_k}"
+        / cfg.pred.method
+        / f"{cfg.masks.alignment_mode}_{cfg.masks.alignment_threshold}_{cfg.eval.criteria}_{cfg.eval.clip_threshold}_{cfg.eval.top_k}"
     )
     metric_dict_path = str(ap_output_path / "ap_metrics.pkl")
 

@@ -49,8 +49,10 @@ def main(cfg: DictConfig):
     ranks_output_path = (
         Path(cfg.output_path)
         / "rank_metric"
+        / cfg.query.level
         / cfg.dataset.name
-        / f"{cfg.pred.method}_{cfg.masks.alignment_mode}_{cfg.masks.alignment_threshold}_{cfg.eval.top_k}_{cfg.eval.iou_threshold}"
+        / cfg.pred.method
+        / f"{cfg.masks.alignment_mode}_{cfg.masks.alignment_threshold}_{cfg.eval.top_k}_{cfg.eval.iou_threshold}"
     )
     with open(ranks_output_path / "query_ranks.pkl", "rb") as f:
         query_ranks = pickle.load(f)
