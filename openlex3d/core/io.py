@@ -5,6 +5,7 @@ from typing import Any, Dict, List
 import numpy as np
 import open3d as o3d
 import yaml
+import json
 from omegaconf import DictConfig
 from sklearn.neighbors import NearestNeighbors
 
@@ -185,28 +186,14 @@ def load_all_predictions(predictions_path, scene_name):
     assert masks_path.exists()
     assert features_path.exists()
 
-    pcd = load_pcd(str(pcd_path))
-    masks = load_mask_indices(str(masks_path))
-    features = load_features(str(features_path))
+    pcd = o3d.t.io.read_point_cloud(pcd_path)
+    pcd_points = pcd.point.positions.numpy()
 
-    return pcd, masks, features
+    masks = np.load(masks_path)
+    masks = masks.astype(int)
 
+    features = np.load(features_path)
 
-def load_pcd(pcd_file):
-    """Load prediction point cloud (n_points, 3)."""
-    pcd = o3d.io.read_point_cloud(pcd_file)
-    return np.asarray(pcd.points)
+    return pcd_points, masks, features
 
 
-def load_mask_indices(mask_file):
-    """
-    Load the mask indices file.
-    Assume it is a file containing n_points integers.
-    """
-    masks = np.load(mask_file)
-    return masks.astype(int)
-
-
-def load_features(features_file):
-    """Load the predicted features (n_objects, n_dim)."""
-    return np.load(features_file)
