@@ -2,18 +2,19 @@
 
 defaults:
   - dataset: replica
+  - _self_
 
-output_path: /home/mila/k/kumaraditya.gupta/scratch/openlex_query/query_experiments_v9
+output_path: /path/to/output # required
 hydra:
   run:
-    dir: ${output_path}/logs/${eval.metric}/${dataset.name}/${oc.env:SLURM_JOB_ID}
+    dir: ${output_path}/logs/${eval.metric}/${dataset.name}/${now:%Y-%m-%d-%H-%M-%S}
 
 pred:
-  method: openmask3d_duplicated
-  path: /home/mila/k/kumaraditya.gupta/scratch/openlex_query/openlex_results/${pred.method}/${dataset.name}
+  method: concept-graphs
+  path: /path/to/predictions/${pred.method}/${dataset.name} # required
 
 query:
-  path: /home/mila/k/kumaraditya.gupta/scratch/openlex_query/openlex_labels
+  path: /path/to/openlex_labels # required
   level: "l0" # ["l0", "l1", "all"]
 
 masks:

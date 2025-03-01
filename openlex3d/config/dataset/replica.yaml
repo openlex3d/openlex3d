@@ -10,5 +10,4 @@ scenes:
     "office3",
     "office4",
   ]
-# scenes: ["room1"]
-path: /network/scratch/s/sacha.morin/data_openlex/Replica_full
+path: /path/to/Replica_full # required
