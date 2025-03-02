@@ -1,8 +1,10 @@
 import copy
 import json
 import os
+
 import sys
 from collections import defaultdict
+
 from pathlib import Path
 
 import networkx as nx
@@ -10,7 +12,9 @@ import numpy as np
 import open3d as o3d
 import torch
 from PIL import ImageColor
+
 from scipy.optimize import linear_sum_assignment
+
 from torchmetrics.functional import pairwise_cosine_similarity
 
 
@@ -36,13 +40,15 @@ class PanopticLevelEval:
 
     def __str__(self):
         return f"{self.id}"
-    
+
     def __print__(self) -> str:
         return f"{self.id}"
 
 
+
 class PanopticRegionEval():
     def __init__(self, region_id, floor_id, category, voted_category, min_height, max_height, mean_height):
+
         self.id = region_id
         self.floor_id = floor_id
         self.voted_category = voted_category
@@ -59,6 +65,7 @@ class PanopticRegionEval():
 
     def __str__(self) -> str:
         return f"{self.floor_id}_{self.id}"
+
 
 
 class PanopticObjectEval():
@@ -181,7 +188,6 @@ class HM3DSemanticGT:
             self.gt_graph.add_edge(self.gt_rooms[int(obj.region_id)], obj)
             self.gt_objects[obj.id] = obj
 
-
         print("----------------------------")
         print("GT graph loaded:")
         print("Number of GT floors: ", len([node for node in self.gt_graph.nodes if node.type == "floor"]))
@@ -229,12 +235,11 @@ class HM3DSemanticGT:
         norm_top_k = [k / len(gt_classes) for k in top_k_spec]
         tp_top_k_auc = np.trapz(list(top_k_acc.values()), norm_top_k)
         return top_k_acc, tp_top_k_auc
+
     
 
     def get_rgb_pointcloud(self) -> o3d.geometry.PointCloud:
         """
-        Returns a point cloud with all objects colored by their original RGB values
-        
         Returns:
             o3d.geometry.PointCloud: Point cloud with all objects colored by their original RGB values
             Dict[int, PanopticObjectEval]: Dictionary of all objects with object id as key
@@ -245,12 +250,10 @@ class HM3DSemanticGT:
         for obj_id, obj in self.gt_objects.items():
             self.rgb_pcd += obj.pcd
         return self.rgb_pcd, self.gt_objects
-    
+
 
     def get_panoptic_pointcloud(self) -> o3d.geometry.PointCloud:
         """
-        Returns a point cloud with all objects colored by their respective instance RGB values.
-        
         Returns:
             o3d.geometry.PointCloud: Point cloud with all objects colored by their original RGB values
             Dict[int, PanopticObjectEval]: Dictionary of all objects with object id as key
@@ -298,6 +301,40 @@ def load_dataset(name: str = None, scene: str = None, base_path: str = None) -> 
     gt_cloud = o3d.t.geometry.PointCloud(o3d.core.Tensor(np.concatenate(points)))
     gt_cloud.point.colors = o3d.core.Tensor(np.concatenate(colors))
     gt_instance_labels = np.concatenate(gt_instance_labels)
+    
+    assert gt_instance_labels.shape[0] == len(gt_cloud.point.positions), "Length of GT instance labels does not match number of cloud points"
+
+    return gt_cloud, gt_instance_labels
+  
+  
+def load_dataset_with_obj_ids(name: str = None, scene: str = None, base_path: str = None) -> tuple[o3d.t.geometry.PointCloud, np.ndarray]:
+  
+    assert name, "dataset name not defined, please provide a dataset name"
+    assert scene, "scene not defined, please provide a given scene identifier"
+    assert base_path, "dataset.path not defined, please add a path to the HM3DSemantics-walks dataset"
+
+    dataset_root = Path(base_path, f"{scene}")
+
+    gt_scene_info_path = dataset_root / "scene_info.json"
+    assert gt_scene_info_path.exists()
+
+    hm3d_gt = HM3DSemanticGT()
+    hm3d_gt.load_gt_graph_from_json(gt_scene_info_path)
+    assert len(hm3d_gt.gt_objects) > 0, "GT objects not loaded"
+
+    gt_instance_labels = list() 
+    points, colors = list(), list()
+
+    for obj_id, obj in hm3d_gt.gt_objects.items():
+        labels = np.full(len(obj.pcd.points), obj_id, dtype=np.uint16)
+        gt_instance_labels.append(labels)
+        points.append(np.asarray(obj.pcd.points))
+        colors.append(np.asarray(obj.pcd.colors))
+
+    gt_cloud = o3d.t.geometry.PointCloud(o3d.core.Tensor(np.concatenate(points)))
+    gt_cloud.point.colors = o3d.core.Tensor(np.concatenate(colors))
+    gt_instance_labels = np.concatenate(gt_instance_labels)
+    
     assert gt_instance_labels.shape[0] == len(gt_cloud.point.positions), "Length of GT instance labels does not match number of cloud points"
 
     return gt_cloud, gt_instance_labels
