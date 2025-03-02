@@ -13,8 +13,7 @@ import open3d as o3d
 from openlex3d import get_path
 from openlex3d.core.io import load_all_predictions, load_query_json
 from openlex3d.datasets import load_dataset_with_obj_ids
-from openlex3d.core.average_precision import evaluate_matches, compute_averages
-from openlex3d.core.rank_metric import evaluate_rank
+from openlex3d.core.metric import compute_ap, compute_ap_averages, compute_query_inverse_rank
 from openlex3d.core.align_masks import get_pred_mask_indices_gt_aligned
 from openlex3d.core.cosine_similarity import compute_normalized_cosine_similarities
 
@@ -404,15 +403,15 @@ def main(cfg: DictConfig):
         all_matches.update(matches)
 
         if cfg.eval.metric == "rank":
-            avg_inverse_rank, scene_query_ranks = evaluate_rank(
+            avg_inverse_rank, scene_query_ranks = compute_query_inverse_rank(
                 matches, cfg.eval.iou_threshold
             )
             logger.info(f"Scene {scene_id} - Average inverse rank: {avg_inverse_rank}")
             per_scene_results[scene_id] = {"avg_inverse_rank": avg_inverse_rank}
 
         elif cfg.eval.metric == "ap":
-            ap_score, metric_dict = evaluate_matches(matches)
-            avg_results = compute_averages(ap_score)
+            ap_score, metric_dict = compute_ap(matches)
+            avg_results = compute_ap_averages(ap_score)
             logger.info(f"Scene {scene_id} - Average Precision: {avg_results}")
             per_scene_results[scene_id] = avg_results
 
@@ -420,7 +419,7 @@ def main(cfg: DictConfig):
     overall_results = {}
 
     if cfg.eval.metric == "rank":
-        avg_inverse_rank, scene_query_ranks = evaluate_rank(
+        avg_inverse_rank, scene_query_ranks = compute_query_inverse_rank(
             all_matches, cfg.eval.iou_threshold
         )
         logger.info(f"IoU used: {cfg.eval.iou_threshold}")
@@ -443,8 +442,8 @@ def main(cfg: DictConfig):
         overall_results["avg_inverse_rank"] = avg_inverse_rank
 
     elif cfg.eval.metric == "ap":
-        ap_score, metric_dict = evaluate_matches(all_matches)
-        avg_results = compute_averages(ap_score)
+        ap_score, metric_dict = compute_ap(all_matches)
+        avg_results = compute_ap_averages(ap_score)
         logger.info(f"Overall Average Precision: {avg_results}")
 
         # Save the pickled metrics (if needed)
