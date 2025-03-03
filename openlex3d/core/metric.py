@@ -1,3 +1,5 @@
+# AP code adapted from OpenSun3D challenge: https://github.com/OpenSun3D/cvpr24-challenge/blob/main/challenge_track_1/benchmark_scripts/eval_utils/eval_script_inst.py
+
 from collections import defaultdict
 from typing import List
 
@@ -615,6 +617,7 @@ def compute_ap_averages(aps, factor=100):  # factor is 1 or 100 (for percent)
     avg_dict["all_ap_50%"] = np.nanmean(aps[d_inf, :, o50]) * factor
     avg_dict["all_ap_25%"] = np.nanmean(aps[d_inf, :, o25]) * factor
     return avg_dict
+
 
 def compute_query_inverse_rank(matches, iou_threshold):
     """
