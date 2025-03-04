@@ -55,6 +55,9 @@ def main(config: DictConfig):
         pred_labels = get_label_from_logits(logits, prompt_list, method="topn", topn=config.evaluation.topn)
 
         results = {}
+        pred_categories = None
+        point_labels = None
+        point_categories = None
         # Compute metric (intersection over union)
         if config.evaluation.iou:
             iou_results, pred_categories, point_labels, point_categories = (

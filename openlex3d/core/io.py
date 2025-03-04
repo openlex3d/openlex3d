@@ -109,20 +109,21 @@ def save_results(
     # Prepare outputh path
     output_cloud = Path(output_path, "point_cloud.pcd")
 
-    # Map categories to colors
-    colors = np.array(
-        [get_color(category) for category in pred_categories], dtype=float
-    )
+    if pred_categories:
+        # Map categories to colors
+        colors = np.array(
+            [get_color(category) for category in pred_categories], dtype=float
+        )
 
-    # Reconstruct output cloud
-    cloud = reference_cloud.clone()
-    cloud.point.colors = o3d.core.Tensor(colors)
+        # Reconstruct output cloud
+        cloud = reference_cloud.clone()
+        cloud.point.colors = o3d.core.Tensor(colors)
 
-    assert cloud.point.positions.shape[0] > 0
-    assert cloud.point.colors.shape[0] > 0
+        assert cloud.point.positions.shape[0] > 0
+        assert cloud.point.colors.shape[0] > 0
 
-    # Save
-    o3d.io.write_point_cloud(str(output_cloud), cloud.to_legacy())
+        # Save
+        o3d.io.write_point_cloud(str(output_cloud), cloud.to_legacy())
 
     # o3d.visualization.draw_geometries([cloud.to_legacy()])
 
@@ -133,12 +134,14 @@ def save_results(
         yaml.dump(results, file, default_flow_style=False)
         
     # Save predicted labels for each point
-    output_labels = Path(output_path, "point_labels.npy")
-    np.save(output_labels, point_labels)
+    if point_labels:
+        output_labels = Path(output_path, "point_labels.npy")
+        np.save(output_labels, point_labels)
 
     # Save predicted category for each label of each point
-    output_categories = Path(output_path, "point_categories.npy")
-    np.save(output_categories, point_categories)
+    if point_categories:
+        output_categories = Path(output_path, "point_categories.npy")
+        np.save(output_categories, point_categories)
 
 
 def load_query_json(cfg, dataset, scene):
