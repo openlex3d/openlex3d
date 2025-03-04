@@ -5,6 +5,7 @@ from typing import Any, Dict, List
 import numpy as np
 import open3d as o3d
 import yaml
+import json
 from omegaconf import DictConfig
 from sklearn.neighbors import NearestNeighbors
 
@@ -130,7 +131,7 @@ def save_results(
 
     with open(str(output_results), "w") as file:
         yaml.dump(results, file, default_flow_style=False)
-
+        
     # Save predicted labels for each point
     output_labels = Path(output_path, "point_labels.npy")
     np.save(output_labels, point_labels)
@@ -138,3 +139,61 @@ def save_results(
     # Save predicted category for each label of each point
     output_categories = Path(output_path, "point_categories.npy")
     np.save(output_categories, point_categories)
+
+
+def load_query_json(cfg, dataset, scene):
+    """
+    Loads the query JSON file.
+    Expected format:
+    {
+        "level0": {"cushion": [65, 66], "pillow case": [66, 67]},
+        "level1": {"gingham cushion": [65, 66], "gingham pillow case": [66, 67]}
+    }
+    We'll flatten this to a list of dicts.
+    """
+    jsons_path = cfg.path
+    level = cfg.level
+    query_json_file = str(
+        Path(jsons_path)
+        / dataset
+        / scene
+        / f"gt_categories_query_to_object_mapping_{level}.json"
+    )
+    with open(query_json_file, "r") as f:
+        queries = json.load(f)
+    query_list = []
+    for level, subqueries in queries.items():
+        for query_text, obj_ids in subqueries.items():
+            query_list.append(
+                {
+                    "query_id": f"{level}_{query_text}",
+                    "query_text": query_text,
+                    "object_ids": obj_ids,
+                }
+            )
+    return query_list
+
+
+def load_all_predictions(predictions_path, scene_name):
+    pcd_path = Path(predictions_path) / scene_name / "point_cloud.pcd"
+    if not pcd_path.exists(): # hovsg edit
+        pcd_path = Path(predictions_path) / scene_name / "input.ply"
+
+    masks_path = Path(predictions_path) / scene_name / "index.npy"
+    features_path = Path(predictions_path) / scene_name / "embeddings.npy"
+
+    assert pcd_path.exists()
+    assert masks_path.exists()
+    assert features_path.exists()
+
+    pcd = o3d.t.io.read_point_cloud(pcd_path)
+    pcd_points = pcd.point.positions.numpy()
+
+    masks = np.load(masks_path)
+    masks = masks.astype(int)
+
+    features = np.load(features_path)
+
+    return pcd_points, masks, features
+
+

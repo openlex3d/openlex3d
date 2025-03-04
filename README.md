@@ -2,7 +2,7 @@
 
 Scripts and other tools for the OpenLex3D Benchmark
 
-Mantainers: Christina Kassab, Sacha Morin, Martin Büchner, Matías Mattamala
+Mantainers: Christina Kassab, Sacha Morin, Martin Büchner, Kumaraditya Gupta, Matías Mattamala
 
 
 ## Setup

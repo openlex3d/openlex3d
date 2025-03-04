@@ -23,7 +23,7 @@ INDEX_FILE = "index.npy"
 if __name__ == "__main__":
     scene_path = sys.argv[1]
 
-    full_feats_file = glob.glob(scene_path + "/full_feats.pt")[0]
+    # full_feats_file = glob.glob(scene_path + "/full_feats.pt")[0]
     full_cloud_file = glob.glob(scene_path + "/full_pcd.ply")[0]
     masked_cloud_file = glob.glob(scene_path + "/masked_pcd.ply")[0]
     mask_feats_file = glob.glob(scene_path + "/mask_feats.pt")[0]
