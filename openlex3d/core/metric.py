@@ -242,11 +242,14 @@ def intersection_over_union_topn(
 
 def compute_set_ranking_score(ranks: List[int], set_rank_l=3, set_rank_r=5, max_label_idx=11):
     scores = []
+    left_scores, right_scores = [], []
     for rank in ranks:
         left_box_constr = 1 + min((0, (rank - set_rank_l)/(set_rank_l + EPS)))
         right_box_constr = 1-max((0, (rank - set_rank_r)/(max_label_idx - set_rank_r)))
         scores.append(min(left_box_constr, right_box_constr))
-    return scores
+        left_scores.append(left_box_constr)
+        right_scores.append(right_box_constr)
+    return scores, left_scores, right_scores
 
 
 def set_based_ranking(pred_cloud: o3d.t.geometry.PointCloud,
@@ -269,13 +272,18 @@ def set_based_ranking(pred_cloud: o3d.t.geometry.PointCloud,
     indices = indices.flatten()  # balltree at k=1 will output a single index
 
     # Next step aims to find which category the predicted label falls into
-    overall_scores, synonym_scores, vis_sim_scores, depiction_scores, _ = (
-        defaultdict(list),
-        defaultdict(list),
+    overall_scores, synonym_scores, sec_scores = (
         defaultdict(list),
         defaultdict(list),
         defaultdict(list),
     )
+    
+    syn_undershooting_scores, sec_overshooting_scores, sec_undershooting_scores = {}, {}, {}
+    syn_inlier_rate, sec_inlier_rate = {}, {}
+
+                
+            
+
     stripped_prompt_list = [label.replace(" ", "") for label in prompt_list]
 
     for gt_id, distance, index in tqdm.tqdm(
@@ -290,13 +298,15 @@ def set_based_ranking(pred_cloud: o3d.t.geometry.PointCloud,
         synonyms = gt_labels_handler._get_labels_from_category(gt_id, "synonyms")
         synonym_idcs = [stripped_prompt_list.index(synonym) for synonym in synonyms if synonym in stripped_prompt_list]
 
+        consider_synonyms, consider_secondary = False, False
+
         rolling_rank = 0
+        syn_ranks = []
         if len(synonym_idcs) > 0:
             consider_synonyms = True
             syn_rank_l, syn_rank_r = rolling_rank, len(synonym_idcs) - 1
             rolling_rank += len(synonym_idcs)
             # get the ranks of all synonym_idcs in pred_label_ranking
-            syn_ranks = []
             for syn_idx in synonym_idcs:
                 syn_ranks.append(torch.where(pred_label_ranking == syn_idx)[0].item())
         else:
@@ -309,28 +319,28 @@ def set_based_ranking(pred_cloud: o3d.t.geometry.PointCloud,
             stripped_prompt_list.index(depiction_label) for depiction_label in depiction if depiction_label in stripped_prompt_list
         ]
 
+        depiction_ranks = []
         if len(depiction_idcs) > 0:
-            consider_depiction = True
+            consider_depictions = True
             depiction_rank_l, depiction_rank_r = (
                 rolling_rank,
                 rolling_rank + len(depiction_idcs) - 1,
             )
             rolling_rank += len(depiction_idcs)
-            depiction_ranks = []
             for depiction_idx in depiction_idcs:
                 depiction_ranks.append(
                     torch.where(pred_label_ranking == depiction_idx)[0].item()
                 )
         else:
+            consider_depictions = False
             depiction_rank_l, depiction_rank_r = None, None
-            consider_depiction = False
 
         # obtain vis-sim ranks
         vis_sim = gt_labels_handler._get_labels_from_category(gt_id, "vis_sim")
         vis_sim_idcs = [
             stripped_prompt_list.index(vis_sim_label) for vis_sim_label in vis_sim if vis_sim_label in stripped_prompt_list
         ]
-
+        vis_sim_ranks = []
         if len(vis_sim_idcs) > 0:
             consider_vis_sim = True
             vis_sim_rank_l, vis_sim_rank_r = (
@@ -338,7 +348,6 @@ def set_based_ranking(pred_cloud: o3d.t.geometry.PointCloud,
                 rolling_rank + len(vis_sim_idcs) - 1,
             )
             rolling_rank += len(vis_sim_idcs)
-            vis_sim_ranks = []
             for vis_sim_idx in vis_sim_idcs:
                 vis_sim_ranks.append(
                     torch.where(pred_label_ranking == vis_sim_idx)[0].item()
@@ -347,56 +356,61 @@ def set_based_ranking(pred_cloud: o3d.t.geometry.PointCloud,
             vis_sim_rank_l, vis_sim_rank_r = None, None
             consider_vis_sim = False
 
-        # # obtain clutter-ranks
-        # clutter_ids = [int(x) for x in gt_labels_handler._get_labels_from_category(gt_id, "clutter")]
-        # clutter_idcs = [stripped_prompt_list.index(clutter_label) for clutter_label in clutter]
+        # definition of second-tier category
+        if consider_depictions and consider_vis_sim:
+            secondary_rank_l = depiction_rank_l
+            secondary_rank_r = vis_sim_rank_r
+            consider_secondary = True
+        elif consider_depictions and not consider_vis_sim:
+            secondary_rank_l = depiction_rank_l
+            secondary_rank_r = depiction_rank_r
+            consider_secondary = True
+        elif not consider_depictions and consider_vis_sim:
+            secondary_rank_l = vis_sim_rank_l
+            secondary_rank_r = vis_sim_rank_r
+            consider_secondary = True
+        else:
+            secondary_rank_l, secondary_rank_r = None, None
+            consider_secondary = False            
 
-        # for prompt in stripped_prompt_list:
-        #     if "5" in prompt or "7" in prompt:
-        #         print(prompt)
-        # if len(clutter_idcs) > 0:
-        #     consider_clutter = True
-        #     clutter_rank_l, clutter_rank_r = rolling_rank, rolling_rank + len(clutter_idcs)-1
-        #     rolling_rank += len(clutter_idcs)
-        #     clutter_ranks = []
-        #     for clutter_idx in clutter_idcs:
-        #         clutter_ranks.append(torch.where(pred_label_ranking == clutter_idx)[0].item())
-        # else:
-        #     clutter_rank_l, clutter_rank_r = None, None
-        #     consider_clutter = False
-
-        # print(syn_rank_l, syn_rank_r, vis_sim_rank_l, vis_sim_rank_r, depiction_rank_l, depiction_rank_r, clutter_rank_l, clutter_rank_r)
-        # print(syn_rank_l, syn_rank_r, vis_sim_rank_l, vis_sim_rank_r, depiction_rank_l, depiction_rank_r)
-
+        secondary_ranks = depiction_ranks + vis_sim_ranks
+    
         L = len(stripped_prompt_list) - 1
         if consider_synonyms:
-            indiv_syn_scores = compute_set_ranking_score(syn_ranks, syn_rank_l, syn_rank_r, L)
+            indiv_syn_scores, indiv_syn_scores_left, indiv_syn_scores_right = compute_set_ranking_score(syn_ranks, syn_rank_l, syn_rank_r, L)
+            syn_inlier_rate[gt_id] = sum([1 for score in indiv_syn_scores if score == 1]) / len(indiv_syn_scores)
+            syn_undershooting_scores[gt_id] = [score for score in indiv_syn_scores_right if score < 1]
             synonym_scores[gt_id].extend(indiv_syn_scores)
             overall_scores[gt_id].extend(indiv_syn_scores)
-        if consider_depiction:
-            indiv_depiction_scores = compute_set_ranking_score(depiction_ranks, depiction_rank_l, depiction_rank_r, L)
-            depiction_scores[gt_id].extend(indiv_depiction_scores)
-            overall_scores[gt_id].extend(indiv_depiction_scores)
-        if consider_vis_sim:
-            indiv_vis_sim_scores = compute_set_ranking_score(vis_sim_ranks, vis_sim_rank_l, vis_sim_rank_r, L)
-            vis_sim_scores[gt_id].extend(indiv_vis_sim_scores)
-            overall_scores[gt_id].extend(indiv_vis_sim_scores)
-        # if consider_clutter:
-        #     indiv_clutter_scores = compute_set_ranking_score(clutter_ranks, clutter_rank_l, clutter_rank_r, L)
-        #     clutter_scores[gt_id].extend(indiv_clutter_scores)
-        #     overall_scores[gt_id].extend(indiv_clutter_scores)
+        if consider_secondary:
+            indiv_sec_scores, indiv_sec_scores_left, indiv_sec_scores_right = compute_set_ranking_score(secondary_ranks, secondary_rank_l, secondary_rank_r, L)
+            sec_inlier_rate[gt_id] = sum([1 for score in indiv_sec_scores if score == 1]) / len(indiv_sec_scores)
+            # evaluate left box constraint errors
+            sec_overshooting_scores[gt_id] = [score for score in indiv_sec_scores_left if score < 1]
+            sec_undershooting_scores[gt_id] = [score for score in indiv_sec_scores_right if score < 1]
+            sec_scores[gt_id].extend(indiv_sec_scores)
+            overall_scores[gt_id].extend(indiv_sec_scores)
 
     for gt_id in overall_scores.keys():
-        overall_scores[gt_id] = float(np.nanmean(overall_scores[gt_id]))
-        synonym_scores[gt_id] = float(np.nanmean(synonym_scores[gt_id]))
-        vis_sim_scores[gt_id] = float(np.nanmean(vis_sim_scores[gt_id]))
-        depiction_scores[gt_id] = float(np.nanmean(depiction_scores[gt_id]))
+        if gt_id in list(overall_scores.keys()):
+            overall_scores[gt_id] = float(np.nanmean(overall_scores[gt_id]))
+        if gt_id in list(synonym_scores.keys()):
+            synonym_scores[gt_id] = float(np.nanmean(synonym_scores[gt_id]))
+            syn_undershooting_scores[gt_id] = float(np.nanmean(syn_undershooting_scores[gt_id]))
+        if gt_id in list(sec_scores.keys()):
+            sec_scores[gt_id] = float(np.nanmean(sec_scores[gt_id]))
+            sec_overshooting_scores[gt_id] = float(np.nanmean(sec_overshooting_scores[gt_id]))
+            sec_undershooting_scores[gt_id] = float(np.nanmean(sec_undershooting_scores[gt_id]))
 
     results = {
         "overall": float(np.nanmean(list(overall_scores.values()))),
         "synonyms": float(np.nanmean(list(synonym_scores.values()))),
-        "vis_sim": float(np.nanmean(list(vis_sim_scores.values()))),
-        "depictions": float(np.nanmean(list(depiction_scores.values()))),
+        "secondary": float(np.nanmean(list(sec_scores.values()))),
+        "synonym_undershooting": float(np.nanmean(list(syn_undershooting_scores.values()))),
+        "secondary_overshooting": float(np.nanmean(list(sec_overshooting_scores.values()))),
+        "secondary_undershooting": float(np.nanmean(list(sec_undershooting_scores.values()))),
+        "synonym_inlier_rate": float(np.nanmean(list(syn_inlier_rate.values()))),
+        "secondary_inlier_rate": float(np.nanmean(list(sec_inlier_rate.values()))),
     }
 
     return results
