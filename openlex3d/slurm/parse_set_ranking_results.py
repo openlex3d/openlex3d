@@ -32,13 +32,13 @@ df = df.set_index(["top_n", "algorithm", "dataset", "scene"]).sort_index()
 df = df[
     [
         "overall",
+        "synonyms",
+        "synonym_inlier_rate",
+        "synonym_undershooting",
         "secondary",
         "secondary_inlier_rate",
         "secondary_overshooting",
         "secondary_undershooting",
-        "synonym_inlier_rate",
-        "synonym_undershooting",
-        "synonyms",
     ]
 ]
 
