@@ -186,7 +186,7 @@ def load_all_predictions(predictions_path, scene_name):
     assert masks_path.exists()
     assert features_path.exists()
 
-    pcd = o3d.t.io.read_point_cloud(pcd_path)
+    pcd = o3d.t.io.read_point_cloud(str(pcd_path))
     pcd_points = pcd.point.positions.numpy()
 
     masks = np.load(masks_path)

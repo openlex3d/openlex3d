@@ -6,7 +6,7 @@ do
     do
         for level in l0 l1 all
         do
-            sbatch $HOME/openlex3d/openlex3d/slurm/query_sbatch.sh dataset=$dataset pred.method=$algorithm query.level=$level model.device=cuda:0
+            sbatch $HOME/openlex3d/openlex3d/scripts/slurm/query_sbatch.sh dataset=$dataset pred.method=$algorithm query.level=$level model.device=cuda:0
         done
     done
 done

@@ -7,15 +7,21 @@ Mantainers: Christina Kassab, Sacha Morin, Martin Büchner, Kumaraditya Gupta, M
 
 ## Setup
 
+### For GPU
 ```sh
-pip install openlex3d
+pip install openlex3d[gpu]
+```
+
+### For CPU
+```sh
+pip install openlex3d[cpu]
 ```
 
 ### For development
-
+Assuming GPU access
 ```sh
 conda create -n openlex3d-env python=3.11
-pip install -e .
+pip install -e .[gpu]
 pre-commit install
 ```
 
@@ -65,9 +71,19 @@ For example:
 python openlex3d/scripts/evaluate.py -cp /Users/matias/git/openlex3d/openlex3d/config -cn replica
 ```
 
+To run the queries evaluation metric:
+```sh
+python openlex3d/scripts/evaluate_queries.py
+```
+
 Alternative, you can use the installed script:
 ```sh
 ol3_evaluate -cp /Users/matias/git/openlex3d/openlex3d/config -cn replica
+```
+
+For queries evaluation metric:
+```sh
+ol3_queries_evaluate
 ```
 
 ## License

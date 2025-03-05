@@ -4,12 +4,12 @@ version = "0.0.1"
 
 description = "The OpenLex3D Toolbox package"
 authors = [
-    { name="Christina Kassab", email="christina@robots.ox.ac.uk" },
-    { name="Sacha Morin",      email="sacha.morin@mila.quebec" },
-    { name="Martin Buechner",  email="buechner@cs.uni-freiburg.de" },
-    { name="Matias Mattamala", email="matias@robots.ox.ac.uk" },
+    { name = "Christina Kassab", email = "christina@robots.ox.ac.uk" },
+    { name = "Sacha Morin", email = "sacha.morin@mila.quebec" },
+    { name = "Martin Buechner", email = "buechner@cs.uni-freiburg.de" },
+    { name = "Matias Mattamala", email = "matias@robots.ox.ac.uk" },
 ]
-license = { text="MIT"}
+license = { text = "MIT" }
 readme = "README.md"
 
 classifiers = [
@@ -38,9 +38,13 @@ dependencies = [
     "plyfile",
     "pyspellchecker",
     "colorama",
-    "git+https://github.com/openai/CLIP.git",
-    "seaborn"
+    # "git+https://github.com/openai/CLIP.git",
+    "seaborn",
 ]
+
+[project.optional-dependencies]
+gpu = ["faiss-gpu-cu12"]
+cpu = ["faiss-cpu"]
 
 [build-system]
 requires = ["hatchling"]
@@ -55,7 +59,7 @@ line-length = 88
 respect-gitignore = false
 target-version = "py38"
 lint.ignore = [
-      "E402",  # Module level import not at top of file
+    "E402", # Module level import not at top of file
 ]
 
 [tool.ruff.lint.isort]
@@ -65,3 +69,4 @@ split-on-trailing-comma = false
 
 [project.scripts]
 ol3_evaluate = "openlex3d.scripts.evaluate:main"
+ol3_queries_evaluate = "openlex3d.scripts.queries_evaluate:main"
