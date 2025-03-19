@@ -1,3 +1,5 @@
-name: hm3d
-scenes: ["00824", "00829", "00843", "00847", "00873", "00877", "00890"]
-path: /path/to/hm3d # required
+name: "hm3d"
+scene: "00824"
+path: ${paths.hm3d_path}
+openlex3d_path: ${paths.openlex_gt_path}
+

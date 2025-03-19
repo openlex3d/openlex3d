@@ -1,13 +1,4 @@
-name: replica
-scenes:
-  [
-    "room0",
-    "room1",
-    "room2",
-    "office0",
-    "office1",
-    "office2",
-    "office3",
-    "office4",
-  ]
-path: /path/to/Replica_full # required
+name: "replica"
+scene: "room0"
+path: ${paths.replica_path}
+openlex3d_path: ${paths.openlex_gt_path}

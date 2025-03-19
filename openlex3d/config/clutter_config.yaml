@@ -1,9 +1,9 @@
 dataset:
   name: "scannetpp"
   scene: "fd361ab85f"
-  path: "/media/christina/T7 Shield1/data_download"
+  path: ??? 
 
 jsons:
-  json_path: "/home/christina/openlex3d_labels/scannetpp/fd361ab85f/scannetpp_fd361ab85f_merged_reviewed.json"
-  updated_json_path: "/home/christina/openlex3d_labels/scannetpp/fd361ab85f/scannetpp_fd361ab85f_merged_reviewed_clutter.json"
+  json_path: ???
+  updated_json_path:  ???
 
