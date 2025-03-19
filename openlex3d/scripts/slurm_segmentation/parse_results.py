@@ -3,10 +3,11 @@ import pandas as pd
 from pathlib import Path
 import yaml
 
-pd.options.display.float_format = "{:,.6f}".format
+pd.options.display.float_format = "{:,.2f}".format
 
 base_path = Path(sys.argv[1])
 data = []
+
 
 # Walk directories in base path
 for result_file in base_path.rglob("results.yaml"):
@@ -14,39 +15,26 @@ for result_file in base_path.rglob("results.yaml"):
     dataset = result_file.parts[-3]
     top_n = result_file.parts[-4]
     algorithm = result_file.parts[-5]
-    
     with open(result_file, "r") as f:
         result = yaml.load(f, Loader=yaml.FullLoader)
-        ranking_result = result.get("ranking", {})  # Extract ranking data
-        ranking_result.update(
+        result = result["iou"]  # Only take IOU results
+        result.update(
             dict(algorithm=algorithm, dataset=dataset, scene=scene, top_n=top_n)
         )
-        data.append(ranking_result)
+        data.append(result)
 
-# Create DataFrame
+
 df = pd.DataFrame(data)
 
-# Set index and sort
+# Pivot dataset and scene as rows.
 df = df.set_index(["top_n", "algorithm", "dataset", "scene"]).sort_index()
+df = df[["synonyms", "depictions", "vis_sim", "clutter", "incorrect", "missing"]]
 
-df = df[
-    [
-        "overall",
-        "synonyms",
-        "synonym_inlier_rate",
-        "synonym_undershooting",
-        "secondary",
-        "secondary_inlier_rate",
-        "secondary_overshooting",
-        "secondary_undershooting",
-    ]
-]
-
-# Print full dataframe
+# Full df
 print(df.to_string())
 
-# Save to CSV
-df.to_csv("results_set_ranking.csv")
+# Save full df to csv
+df.to_csv("results.csv")
 
-# Print average per dataset
+# Average per dataset
 print(df.groupby(["top_n", "algorithm", "dataset"]).mean().to_string())

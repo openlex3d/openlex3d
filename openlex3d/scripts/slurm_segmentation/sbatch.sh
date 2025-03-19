@@ -10,7 +10,7 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH --time=0-03:00:00
 #SBATCH --partition=long
-#SBATCH -o /network/scratch/k/kumaraditya.gupta/logs/openlex-eval/slurm-%j.out  # Write the log on scratch
+#SBATCH -o /path/to/logs/openlex-query-eval/slurm-%j.out  # Write the log on scratch
 
 
 module load python/3.10
