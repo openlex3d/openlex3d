@@ -10,7 +10,7 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH --time=0-03:00:00
 #SBATCH --partition=long
-#SBATCH -o /path/to/logs/openlex-query-eval/slurm-%j.out  # Write the log on scratch
+#SBATCH -o /path_to_logs/slurm-%j.out  # Write the log on scratch
 
 
 module load anaconda/3
