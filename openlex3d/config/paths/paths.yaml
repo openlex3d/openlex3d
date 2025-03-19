@@ -1,6 +1,6 @@
-replica_path: /network/scratch/s/sacha.morin/data_openlex/Replica_full 
-scannetpp_path: /network/scratch/s/sacha.morin/data_openlex/scannetpp
-hm3d_path: /network/scratch/s/sacha.morin/data_openlex/hm3d
-base_prediction_path: /network/scratch/s/sacha.morin/openlex/predictions # We recommend saving predictions in a predictions_path/method/dataset/scene hierarchy
-openlex_gt_path: /network/scratch/s/sacha.morin/openlex/assets           # Path to openlex ground truth and visible point clouds
-output_path: /network/scratch/s/sacha.morin/openlex/results              # Where to save openlex evaluation results
+replica_path: ??? 
+scannetpp_path: ??? 
+hm3d_path: ??? 
+base_prediction_path: ??? # We recommend saving predictions in a predictions_path/method/dataset/scene hierarchy
+openlex_gt_path: ???      # Path to openlex ground truth and visible point clouds
+output_path: ???          # Where to save openlex evaluation results
