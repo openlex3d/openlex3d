@@ -2,26 +2,13 @@ from pathlib import Path
 import open3d as o3d
 import numpy as np
 import argparse
-import colorama
-from colorama import init, Style
-from collections import defaultdict
 
-from openlex3d.core.categories import (
-    SYNONYMS,
-    DEPICTIONS,
-    VISUALLY_SIMILAR,
-    INCORRECT,
-    CLUTTER,
-)
+from openlex3d.core.categories import get_color
 
-init()
 
-color_map = defaultdict(lambda: colorama.Fore.WHITE)
-color_map[SYNONYMS] = colorama.Fore.GREEN
-color_map[DEPICTIONS] = colorama.Fore.CYAN
-color_map[VISUALLY_SIMILAR] = colorama.Fore.YELLOW
-color_map[CLUTTER] = colorama.Fore.BLUE
-color_map[INCORRECT] = colorama.Fore.RED
+def rgb_to_ansi(rgb):
+    """Convert an RGB tuple to an ANSI escape sequence for terminal colors."""
+    return f"\033[38;2;{int(rgb[0] * 255)};{int(rgb[1] * 255)};{int(rgb[2] * 255)}m"
 
 
 def load_point_cloud(pcd_path):
@@ -40,8 +27,8 @@ def visualize_point_cloud(pcd, labels, categories):
     for i, idx in enumerate(picked_indices):
         print(f"\n\n\nClicked point {i}")
         for j, (label, cat) in enumerate(zip(labels[idx], categories[idx])):
-            color = color_map[cat]
-            print(color + f"{j:<3} |{cat:<10} |{label}" + Style.RESET_ALL)
+            ansi_color = rgb_to_ansi(get_color(cat))
+            print(f"{ansi_color}{j:<3} |{cat:<10} |{label} \033[0m")
 
 
 if __name__ == "__main__":
