@@ -67,9 +67,9 @@ To compute the top1 IoU metric of a method called `bare` on the `office0` scene 
 ```sh
 python openlex3d/scripts/evaluate.py -cp <absolute to the openlex/config folder> -cn eval_segmentation evaluation.algorithm=bare dataset=replica dataset.scene=office0 evaluation.topn=1 model.device=cuda:0
 ```
-By default, the script will look for predictions at `${paths.base_prediction_path}/${evaluation.algorithm}/${dataset.name}/${dataset.scene}`. Here this would be ``${paths.base_prediction_path}/bare/replica/office0`. You can instead provide your own prediction path by adding `evaluation.predictions_path=<custom path>` to your command.
+By default, the script will look for predictions at `base_prediction_path/bare/replica/office0` with `base_prediction_path` being defined in `paths.yaml`. You can instead provide your own prediction path by adding `evaluation.predictions_path=<custom path>` to your command.
 
-The dataset options are `replica`, `scannetpp` and `hm3d`. Results are saved to `output_path/bare/top_1/replica/office0` where `output_path` is provided in `paths.yaml`.
+The dataset options are `replica`, `scannetpp` and `hm3d`. In this example, results will be saved to `output_path/bare/top_1/replica/office0` where `output_path` is again taken from `paths.yaml`.
 
 You can alternatively use the installed script `ol3_evaluate` with the same arguments.
 
