@@ -1,9 +1,14 @@
 # OpenLex3D Toolbox
+[**Project Page**](https://openlex3d.github.io/) |
+[**ArXiv**](https://arxiv.org/abs/2503.19764)
 
-Scripts and other tools for the OpenLex3D Benchmark
+[Christina Kassab*](https://ckassab.github.io/), [Sacha Morin*](https://sachamorin.github.io/), [Martin Büchner*](https://rl.uni-freiburg.de/people/buechner), [Matías Mattamala](https://mmattamala.github.io/), [Kumaraditya Gupta](https://www.kumaradityag.com/), [Abhinav Valada](https://rl.uni-freiburg.de/people/valada), [Liam Paull](https://liampaull.ca/), [Maurice Fallon](https://ori.ox.ac.uk/people/maurice-fallon/)
 
-Maintainers: Christina Kassab, Sacha Morin, Martin Büchner, Kumaraditya Gupta, Matías Mattamala
 
+<p align="center">
+	<img src="assets/hero_fig.png" />
+</p>
+Scripts and other tools for the OpenLex3D Benchmark.
 
 ## Setup
 
