@@ -113,3 +113,15 @@ and follow terminal instructions to visualize label predictions for specific poi
 
 ### Queries
 TODO
+
+
+# Reference
+If you find OpenLex3D useful, please leave a ⭐ and consider citing our [arXiv preprint](https://arxiv.org/abs/2503.19764):
+```
+@article{kassab2025openlex3d,
+  title={OpenLex3D: A New Evaluation Benchmark for Open-Vocabulary 3D Scene Representations},
+  author={Kassab, Christina and Morin, Sacha and B{\"u}chner, Martin and Mattamala, Mat{\'\i}as and Gupta, Kumaraditya and Valada, Abhinav and Paull, Liam and Fallon, Maurice},
+  journal={arXiv preprint arXiv:2503.19764},
+  year={2025}
+}
+```
