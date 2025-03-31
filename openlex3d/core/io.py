@@ -142,7 +142,7 @@ def save_results(
         np.save(output_categories, point_categories)
 
 
-def load_query_json(cfg, dataset, scene):
+def load_query_json(cfg, scene):
     """
     Loads the query JSON file.
     Expected format:
@@ -152,8 +152,9 @@ def load_query_json(cfg, dataset, scene):
     }
     We'll flatten this to a list of dicts.
     """
-    jsons_path = cfg.path
-    level = cfg.level
+    jsons_path = cfg.paths.openlex_gt_path
+    level = cfg.evaluation.query_level
+    dataset = cfg.dataset.name
     query_json_file = str(
         Path(jsons_path)
         / dataset

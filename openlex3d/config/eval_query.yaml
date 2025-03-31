@@ -1,0 +1,25 @@
+# @package _global_
+
+defaults:
+  - paths: paths
+  - dataset: query/replica
+  - model: open_clip # openai_clip (for openscene) / open_clip
+  - _self_
+
+hydra:
+  run:
+    dir: ${paths.output_path}/logs/${evaluation.metric}/${dataset.name}/${now:%Y-%m-%d-%H-%M-%S}
+
+masks:
+  alignment_mode: "per_mask" # ["per_mask", "global"]
+  alignment_threshold: 0.001 # dist threshold for nearest neighbor alignment
+
+evaluation:
+  algorithm: concept-graphs # required
+  predictions_path: ${paths.base_prediction_path}/${evaluation.algorithm}/${dataset.name}
+  metric: "ap" # ["rank", "ap"]
+  criteria: "top_k" # ["top_k", "clip_threshold"]
+  clip_threshold: 0.5
+  top_k: 10
+  iou_threshold: 0.25 # used for rank metric only
+  query_level: "l0" # ["l0" for [synonym] queries only, "l1" for [depiction + synonym] queries only, "all" for l0+l1]

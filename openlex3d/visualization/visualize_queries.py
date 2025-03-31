@@ -73,6 +73,18 @@ class QueryViewer:
         self.query_pcd_pred_gt_name = "pcd_query_pred_gt"
         self.query_pcd_pred_gt = None
 
+        self.print_info()
+
+    def print_info(self):
+        print(
+            "Instructions:\n"
+            "1. Use the List Queries button to see the queries available.\n"
+            "2. Enter the query you want to visualize using the New Query button.\n"
+            "3. Use the Main button to visualize the entire point cloud.\n"
+            "4. Use the Query RGB and Query Pred GT buttons to toggle between RGB and semantic views for the point cloud for that query.\n"
+            "5. Semantic color info: Green is for the intersection between the ground truth and the prediction. Blue is for the ground truth points with no corresponding prediction. Red is for the prediction points with no corresponding ground truth.\n"
+        )
+
     def add_geometries(self, viewer, geometry_names, geometries):
         for name, geometry in zip(geometry_names, geometries):
             viewer.add_geometry(name, geometry)
