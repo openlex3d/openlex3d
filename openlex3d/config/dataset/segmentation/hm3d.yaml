@@ -2,4 +2,3 @@ name: "hm3d"
 scene: "00824"
 path: ${paths.hm3d_path}
 openlex3d_path: ${paths.openlex_gt_path}
-

@@ -1,4 +1,3 @@
-
 defaults:
   - paths: paths
   - dataset: replica
