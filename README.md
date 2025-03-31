@@ -78,7 +78,7 @@ python openlex3d/scripts/evaluate_segmentation.py -cp <absolute to the openlex3d
 ```
 By default, the script will look for predictions at `base_prediction_path/bare/replica/office0` with `base_prediction_path` being defined in `paths.yaml`. You can instead provide your own prediction path by adding `evaluation.predictions_path=<custom path to scene predictions>` to your command.
 
-The dataset options are `segemntation/replica`, `segemntation/scannetpp` and `segemntation/hm3d`. In this example, results will be saved to `output_path/bare/top_1/replica/office0` where `output_path` is again taken from `paths.yaml`.
+The dataset options are `segmentation/replica`, `segmentation/scannetpp` and `segmentation/hm3d`. In this example, results will be saved to `output_path/bare/top_1/replica/office0` where `output_path` is again taken from `paths.yaml`.
 
 You can alternatively use the installed script `ol3_evaluate_segmentation` with the same arguments.
 
