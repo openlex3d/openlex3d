@@ -3,7 +3,6 @@
 # PYTHON_ARGCOMPLETE_OK
 
 import logging
-import os
 
 import hydra
 from omegaconf import DictConfig
@@ -11,10 +10,11 @@ from pathlib import Path
 
 import openlex3d.core.metric as metric  # noqa
 from openlex3d import get_path
-from openlex3d.core.evaluation import (compute_feature_to_prompt_similarity,
-                                       get_label_from_logits)
-from openlex3d.core.io import (load_predicted_features, load_prompt_list,
-                               save_results)
+from openlex3d.core.evaluation import (
+    compute_feature_to_prompt_similarity,
+    get_label_from_logits,
+)
+from openlex3d.core.io import load_predicted_features, load_prompt_list, save_results
 from openlex3d.datasets import load_dataset
 from openlex3d.models import load_model
 
@@ -52,7 +52,9 @@ def main(config: DictConfig):
         )
 
         # Get predicted label from logits
-        pred_labels = get_label_from_logits(logits, prompt_list, method="topn", topn=config.evaluation.topn)
+        pred_labels = get_label_from_logits(
+            logits, prompt_list, method="topn", topn=config.evaluation.topn
+        )
 
         results = {}
         pred_categories = None
@@ -70,18 +72,20 @@ def main(config: DictConfig):
                     excluded_labels=config.evaluation.excluded_labels,
                 )
             )
-            results[f"iou"] = iou_results
+            results["iou"] = iou_results
 
         if config.evaluation.set_ranking:
-            set_ranking_results = metric.set_based_ranking(pred_cloud=pred_cloud,
-                    gt_cloud=gt_cloud,
-                    gt_ids=gt_ids,
-                    gt_labels_handler=openlex3d_gt_handler,
-                    excluded_labels=config.evaluation.excluded_labels,
-                    logits=logits,
-                    prompt_list=prompt_list,)
+            set_ranking_results = metric.set_based_ranking(
+                pred_cloud=pred_cloud,
+                gt_cloud=gt_cloud,
+                gt_ids=gt_ids,
+                gt_labels_handler=openlex3d_gt_handler,
+                excluded_labels=config.evaluation.excluded_labels,
+                logits=logits,
+                prompt_list=prompt_list,
+            )
             results["ranking"] = set_ranking_results
-        
+
         # Export predicted clouds
         save_results(
             output_path=config.evaluation.output_path,
