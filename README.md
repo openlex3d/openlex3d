@@ -67,46 +67,52 @@ point_cloud.pcd # RGB point cloud with n_points
 
 For dense methods, `index.npy` will simply be `np.arange(n_points)`.
 
-You can [download](https://drive.google.com/file/d/1jY_lrci-ytBCbOhEgHSDnHP7q5zjXOe5/view?usp=sharing) sample predictions in the OpenLex3D format for `bare`, `concept-graphs` and `openmask3d`. Extract them to `bare_prediction_path`.
+You can [download](https://drive.google.com/file/d/1jY_lrci-ytBCbOhEgHSDnHP7q5zjXOe5/view?usp=sharing) sample predictions in the OpenLex3D format for `bare`, `concept-graphs` and `openmask3d`. Extract them to `base_prediction_path`.
 
 ## Running the Evaluation Script
 
 ### Segmentation IoU
-To compute the top1 IoU metric of a method called `bare` on the `office0` scene of the Replica dataset using a GPU, you can use
+To compute the top1 IoU metric for a method called `bare` on the `office0` scene of the Replica dataset using a GPU, you can use
 ```sh
-python openlex3d/scripts/evaluate.py -cp <absolute to the openlex/config folder> -cn eval_segmentation evaluation.algorithm=bare dataset=replica dataset.scene=office0 evaluation.topn=1 model.device=cuda:0
+python openlex3d/scripts/evaluate_segmentation.py -cp <absolute to the openlex3d/config folder> -cn eval_segmentation evaluation.algorithm=bare dataset=segmentation/replica dataset.scene=office0 evaluation.topn=1 model.device=cuda:0
 ```
-By default, the script will look for predictions at `base_prediction_path/bare/replica/office0` with `base_prediction_path` being defined in `paths.yaml`. You can instead provide your own prediction path by adding `evaluation.predictions_path=<custom path>` to your command.
+By default, the script will look for predictions at `base_prediction_path/bare/replica/office0` with `base_prediction_path` being defined in `paths.yaml`. You can instead provide your own prediction path by adding `evaluation.predictions_path=<custom path to scene predictions>` to your command.
 
-The dataset options are `replica`, `scannetpp` and `hm3d`. In this example, results will be saved to `output_path/bare/top_1/replica/office0` where `output_path` is again taken from `paths.yaml`.
+The dataset options are `segemntation/replica`, `segemntation/scannetpp` and `segemntation/hm3d`. In this example, results will be saved to `output_path/bare/top_1/replica/office0` where `output_path` is again taken from `paths.yaml`.
 
-You can alternatively use the installed script `ol3_evaluate` with the same arguments.
+You can alternatively use the installed script `ol3_evaluate_segmentation` with the same arguments.
 
 ```sh
-ol3_evaluate -cp <absolute to the openlex/config folder> -cn eval_segmentation evaluation.algorithm=bare dataset=replica dataset.scene=office0 evaluation.topn=1 model.device=cuda:0
+ol3_evaluate_segmentation -cp <absolute to the openlex3d/config folder> -cn eval_segmentation evaluation.algorithm=bare dataset=segmentation/replica dataset.scene=office0 evaluation.topn=1 model.device=cuda:0
 ```
 
 You can use the hydra **multirun** function to sequentially process multiple scenes and top n.
 ```sh
-ol3_evaluate -m -cp <absolute to the openlex/config folder> -cn eval_segmentation evaluation.algorithm=bare dataset=replica dataset.scene=office0,office1 evaluation.topn=1,5 model.device=cuda:0
+ol3_evaluate_segmentation -m -cp <absolute to the openlex3d/config folder> -cn eval_segmentation evaluation.algorithm=bare dataset=segmentation/replica dataset.scene=office0,office1 evaluation.topn=1,5 model.device=cuda:0
 ```
 
 ### Segmentation Set Ranking
 Add `evaluation.set_ranking=true` to the previous commands.
 
 ### Queries
-
-TODO
-
-To run the queries evaluation metric:
+To compute AP metrics for all the queries for a method called `bare` on the Replica dataset using a GPU, you can use
 ```sh
-python openlex3d/scripts/evaluate_queries.py
+python openlex3d/scripts/evaluate_queries.py -cp <absolute to the openlex3d/config folder> -cn eval_queries evaluation.algorithm=bare evaluation.query_level=all dataset=query/replica evaluation.top_k=10 model.device=cuda:0
+```
+By default, the script will look for predictions at `base_prediction_path/bare/replica/<scene_id>` with `base_prediction_path` being defined in `paths.yaml`. You can instead provide your own prediction path by adding `evaluation.predictions_path=<custom path to dataset predictions>` to your command.
+
+The dataset options are `query/replica`, `query/scannetpp` and `query/hm3d`. The query AP metrics will be computed on all the scenes supported by OpenLex3D for that dataset. The per-scene results will also be saved.
+
+You can alternatively use the installed script `ol3_evaluate_queries` with the same arguments.
+```sh
+ol3_evaluate_queries -m -cp <absolute to the openlex3d/config folder> -cn eval_queries evaluation.algorithm=bare evaluation.query_level=all dataset=query/replica evaluation.top_k=10 model.device=cuda:0
 ```
 
-For queries evaluation metric:
+To get a summary of the results, you can run
 ```sh
-ol3_queries_evaluate
+python openlex3d/scripts/postprocessing/generate_queries_csv.py <path to output_path used to run queries evaluation>
 ```
+This will save two CSV files with the overall and per-scene metrics to `output_path/query_results_overall.csv` and `output_path/query_results_per_scene.csv` respectively.
 
 ## Visualizer
 ### Segmentation
@@ -117,8 +123,11 @@ python openlex3d/visualization/visualize_results.py output_path/bare/top_1/repli
 and follow terminal instructions to visualize label predictions for specific point clouds.
 
 ### Queries
-TODO
-
+The `visualize_queries.py` will visualize the predictions for specified queries in a scene using open3d. Assuming we ran the command from the Queries section above, you can use
+```sh
+python openlex3d/visualization/visualize_queries.py output_path/viz/all/replica/office0/bare
+```
+and follow terminal instructions.
 
 # Reference
 If you find OpenLex3D useful, please leave a ⭐ and consider citing our [arXiv preprint](https://arxiv.org/abs/2503.19764):

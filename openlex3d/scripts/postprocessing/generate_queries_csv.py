@@ -17,7 +17,7 @@ def gather_json_data(root_dir):
 
     for json_file in Path(root_dir).rglob("*.json"):
         # Only process files named "results.json" to skip other JSONs
-        if (json_file.name != "results.json"):
+        if json_file.name != "results.json":
             continue
 
         with open(json_file, "r") as f:
@@ -101,7 +101,9 @@ def gather_json_data(root_dir):
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python generate_csv.py <root_directory> [<output_directory>]")
+        print(
+            "Usage: python generate_queries_csv.py <root_directory> [<output_directory>]"
+        )
         sys.exit(1)
 
     root_dir = Path(sys.argv[1])
@@ -152,7 +154,7 @@ def main():
     ]
 
     # Write the overall CSV
-    overall_csv_path = output_dir / "all_results_overall.csv"
+    overall_csv_path = output_dir / "query_results_overall.csv"
     with open(overall_csv_path, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=overall_fieldnames)
         writer.writeheader()
@@ -161,7 +163,7 @@ def main():
     print(f"Overall CSV saved to: {overall_csv_path}")
 
     # Write the per‐scene CSV
-    per_scene_csv_path = output_dir / "all_results_per_scene.csv"
+    per_scene_csv_path = output_dir / "query_results_per_scene.csv"
     with open(per_scene_csv_path, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=per_scene_fieldnames)
         writer.writeheader()

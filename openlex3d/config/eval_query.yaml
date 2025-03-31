@@ -22,4 +22,4 @@ evaluation:
   clip_threshold: 0.5
   top_k: 10
   iou_threshold: 0.25 # used for rank metric only
-  query_level: "l0" # ["l0", "l1", "all"]
+  query_level: "l0" # ["l0" for [synonym] queries only, "l1" for [depiction + synonym] queries only, "all" for l0+l1]
