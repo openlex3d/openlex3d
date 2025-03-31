@@ -1,6 +1,6 @@
 defaults:
   - paths: paths
-  - dataset: replica
+  - dataset: segmentation/replica
 
 evaluation:
   type: features

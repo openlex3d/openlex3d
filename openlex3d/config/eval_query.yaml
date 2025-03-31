@@ -2,7 +2,7 @@
 
 defaults:
   - paths: paths
-  - dataset: replica
+  - dataset: query/replica
   - _self_
 
 hydra:
