@@ -3,11 +3,12 @@
 defaults:
   - paths: paths
   - dataset: query/replica
+  - model: open_clip # openai_clip (for openscene) / open_clip
   - _self_
 
 hydra:
   run:
-    dir: ${paths.output_path}/logs/${eval.metric}/${dataset.name}/${now:%Y-%m-%d-%H-%M-%S}
+    dir: ${paths.output_path}/logs/${evaluation.metric}/${dataset.name}/${now:%Y-%m-%d-%H-%M-%S}
 
 masks:
   alignment_mode: "per_mask" # ["per_mask", "global"]
@@ -15,16 +16,10 @@ masks:
 
 evaluation:
   algorithm: concept-graphs # required
-  predictions_path: ${paths.base_prediction_path}/${evaluation.algorithm}/${dataset.name}/${dataset.scene}
+  predictions_path: ${paths.base_prediction_path}/${evaluation.algorithm}/${dataset.name}
   metric: "ap" # ["rank", "ap"]
   criteria: "top_k" # ["top_k", "clip_threshold"]
   clip_threshold: 0.5
   top_k: 10
-  iou_threshold: 0.25 # used for rank only
+  iou_threshold: 0.25 # used for rank metric only
   query_level: "l0" # ["l0", "l1", "all"]
-
-model:
-  device: "cuda"
-  type: open_clip
-  backbone: ViT-H-14 # ViT-L/14@336px # ViT-H-14
-  checkpoint: laion2b_s32b_b79k # options: 'laion2b_s32b_b79k', 'metaclip_fullcc', 'metaclip_altogether', 'dfn5b'

@@ -1,6 +1,8 @@
 defaults:
   - paths: paths
   - dataset: segmentation/replica
+  - model: open_clip # openai_clip (for openscene) / open_clip
+  - _self_
 
 evaluation:
   type: features
@@ -13,9 +15,3 @@ evaluation:
   set_ranking: False
   excluded_labels:
     ["wall", "floor", "ceiling", "doorframe", "ledge", "windowledge"]
-
-model:
-  device: "cpu"
-  type: open_clip # openai_clip (for openscene) / open_clip
-  backbone: ViT-L/14@336px # ViT-L/14@336px (openscene) # ViT-H-14
-  checkpoint: laion2b_s32b_b79k # options: 'laion2b_s32b_b79k', 'metaclip_fullcc', 'metaclip_altogether', 'dfn5b'
