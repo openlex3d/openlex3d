@@ -34,7 +34,7 @@ pre-commit install
 All dataset and evaluation paths are configured in `openlex/config/paths.yaml`. As you set up this repository, update `paths.yaml` with your own paths. All `*_path` variables in this README refer to a key in `paths.yaml`.
 
 ### OpenLex3D Ground Truth
-The OpenLex3D ground truth labels can be downloaded from [here](https://drive.google.com/file/d/1-EdJwmHPdAAtEUvH6Ync8HwfGq2jXj9v/view?usp=sharing). Extract them to `openlex_gt_path`.
+The OpenLex3D ground truth labels can be downloaded from [here](https://drive.google.com/file/d/1NHVmWS9gtkhOO6c09s2OWnMurMUgUSSn/view?usp=sharing). Extract them to `openlex_gt_path`.
 
 ### Datasets
 #### Replica
