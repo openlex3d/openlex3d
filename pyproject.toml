@@ -39,7 +39,6 @@ dependencies = [
     "plyfile",
     "pyspellchecker",
     "colorama",
-    "git+https://github.com/openai/CLIP.git",
     "seaborn",
 ]
 
