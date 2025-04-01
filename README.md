@@ -23,10 +23,11 @@ pip install openlex3d[cpu]
 ``` -->
 
 ### Installation
-Assuming GPU access
+Clone this repository to your system. Then, assuming GPU access run the following commands:
 ```sh
 conda create -n openlex3d-env python=3.11
 conda activate openlex3d-env
+
 cd openlex3d
 pip install -e .[gpu]
 pre-commit install
