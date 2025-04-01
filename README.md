@@ -37,7 +37,7 @@ pre-commit install
 All dataset and evaluation paths are configured in `openlex3d/config/paths/paths.yaml`. As you set up this repository, update `paths.yaml` with your own paths. All `*_path` variables in this README refer to a key in `paths.yaml`.
 
 ### OpenLex3D Ground Truth
-The OpenLex3D ground truth labels can be downloaded from [here](https://drive.google.com/file/d/1NHVmWS9gtkhOO6c09s2OWnMurMUgUSSn/view?usp=sharing). Extract them to `openlex_gt_path`.
+The OpenLex3D ground truth labels can be downloaded from [here](http://aisdatasets.informatik.uni-freiburg.de/openlex3d/gt_openlex3d.zip). Extract them to `openlex_gt_path`.
 
 ### Datasets
 #### Replica
@@ -70,7 +70,7 @@ point_cloud.pcd # RGB point cloud with n_points
 
 For dense methods, `index.npy` will simply be `np.arange(n_points)`.
 
-You can [download](https://drive.google.com/file/d/1UqdFdltJ3X64ODhQ0-9-IrnIDYjcOKlo/view?usp=sharing) sample predictions in the OpenLex3D format for `kassab2024`, `concept-graphs` and `openmask3d`. Extract them to `base_prediction_path`.
+You can [download]([https://drive.google.com/file/d/1UqdFdltJ3X64ODhQ0-9-IrnIDYjcOKlo/view?usp=sharing](http://aisdatasets.informatik.uni-freiburg.de/openlex3d/predictions.zip)) sample predictions in the OpenLex3D format for `kassab2024`, `concept-graphs`, `hovsg`, `openscene`, and `openmask3d`. Extract them to `base_prediction_path`.
 
 ## Running the Evaluation Script
 
