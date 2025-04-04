@@ -39,7 +39,7 @@ All dataset and evaluation paths are configured in `openlex3d/config/paths/paths
 ### OpenLex3D Ground Truth
 Please download the OpenLex3D ground truth labels using `wget` and extract them to `openlex_gt_path`:
 
-``` wget http://aisdatasets.informatik.uni-freiburg.de/openlex3d/gt_openlex3d.zip```
+``` wget http://aisdatasets.cs.uni-freiburg.de/openlex3d/gt_openlex3d.zip```
 
 ### Datasets
 #### Replica
@@ -63,13 +63,13 @@ We have pre-compiled all necessary observations and ground truth data following 
 Please download the following and make all walks a subdirectory of the `hm3d_path` (e.g., `hm3d_path/00824/`). The set of required scenes are *00824*, *00829*, *00843*, *00847*, *00873*, *00877*, *00890*:
 
 ```
-wget http://aisdatasets.informatik.uni-freiburg.de/openlex3d/hm3d-openlex/00824.zip && \
-wget http://aisdatasets.informatik.uni-freiburg.de/openlex3d/hm3d-openlex/00829.zip && \
-wget http://aisdatasets.informatik.uni-freiburg.de/openlex3d/hm3d-openlex/00843.zip && \
-wget http://aisdatasets.informatik.uni-freiburg.de/openlex3d/hm3d-openlex/00847.zip && \
-wget http://aisdatasets.informatik.uni-freiburg.de/openlex3d/hm3d-openlex/00873.zip && \
-wget http://aisdatasets.informatik.uni-freiburg.de/openlex3d/hm3d-openlex/00877.zip && \
-wget http://aisdatasets.informatik.uni-freiburg.de/openlex3d/hm3d-openlex/00890.zip
+wget http://aisdatasets.cs.uni-freiburg.de/openlex3d/hm3d-openlex/00824.zip && \
+wget http://aisdatasets.cs.uni-freiburg.de/openlex3d/hm3d-openlex/00829.zip && \
+wget http://aisdatasets.cs.uni-freiburg.de/openlex3d/hm3d-openlex/00843.zip && \
+wget http://aisdatasets.cs.uni-freiburg.de/openlex3d/hm3d-openlex/00847.zip && \
+wget http://aisdatasets.cs.uni-freiburg.de/openlex3d/hm3d-openlex/00873.zip && \
+wget http://aisdatasets.cs.uni-freiburg.de/openlex3d/hm3d-openlex/00877.zip && \
+wget http://aisdatasets.cs.uni-freiburg.de/openlex3d/hm3d-openlex/00890.zip
 ```
 
 
@@ -87,13 +87,13 @@ For dense methods, `index.npy` will simply be `np.arange(n_points)`.
 We provide three sets of sample predictions that each follow the OpenLex3D data format:
 - **Minimal**: To get you started quickly, please download this minimal set containing just the predictions of `kassab2024`: 
   
-  ```wget http://aisdatasets.informatik.uni-freiburg.de/openlex3d/predictions_minimal.zip``` (0.37 GB)
+  ```wget http://aisdatasets.cs.uni-freiburg.de/openlex3d/predictions_minimal.zip``` (0.37 GB)
 - **Sparse**: The following holds the predictions of all sparse methods (`kassab2024`, `concept-graphs`, `hovsg`, `openmask3d`): 
   
-  ```wget http://aisdatasets.informatik.uni-freiburg.de/openlex3d/predictions_sparse.zip```  (2.0 GB)
+  ```wget http://aisdatasets.cs.uni-freiburg.de/openlex3d/predictions_sparse.zip```  (2.0 GB)
 - **Dense**: Finally, we ship dense methods (`openscene`, `concept-fusion`) separately given their large storage footprint: 
   
-  ```wget http://aisdatasets.informatik.uni-freiburg.de/openlex3d/predictions_dense.zip```  (104.8 GB)
+  ```wget http://aisdatasets.cs.uni-freiburg.de/openlex3d/predictions_dense.zip```  (104.8 GB)
 
 Extract those predictions to `base_prediction_path`.
 
