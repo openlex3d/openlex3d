@@ -54,10 +54,12 @@ For computing the metrics, we use a script provided in the [ScanNet++ toolbox](h
 python -m semantic.prep.prepare_training_data semantic/configs/prepare_training_data.yml
 ```
 
-#### Habitat Matterport
-TODO: MARTIN CONFIRM THIS
+#### Habitat Matterport 3D Semantics
 
-Follow the [HOV-SG](https://github.com/hovsg/HOV-SG) instructions to collect walks for scenes 00824, 00829, 00843, 00847, 00873, 00877 and 00890. Save each walk as a subdirectory in `hm3d_path` using the scene number as the name (e.g., `hm3d_path/00824`).
+We have pre-compiled all necessary observations and ground truth data following the HM3DSem-Walks routine outlined in [HOV-SG](https://github.com/hovsg/HOV-SG). 
+
+Please download the following and make all walks a subdirectory of the `hm3d_path` (e.g., `hm3d_path/00824/`): [00824](http://aisdatasets.informatik.uni-freiburg.de/openlex3d/hm3d-openlex/00824.zip), [00829](http://aisdatasets.informatik.uni-freiburg.de/openlex3d/hm3d-openlex/00829.zip), [00843](http://aisdatasets.informatik.uni-freiburg.de/openlex3d/hm3d-openlex/00843.zip), [00847](http://aisdatasets.informatik.uni-freiburg.de/openlex3d/hm3d-openlex/00847.zip), [00873](http://aisdatasets.informatik.uni-freiburg.de/openlex3d/hm3d-openlex/00873.zip), [00877](http://aisdatasets.informatik.uni-freiburg.de/openlex3d/hm3d-openlex/00877.zip), [00890](http://aisdatasets.informatik.uni-freiburg.de/openlex3d/hm3d-openlex/00890.zip). 
+
 
 ## Predictions
 Predictions should be stored in as three files:
@@ -70,7 +72,12 @@ point_cloud.pcd # RGB point cloud with n_points
 
 For dense methods, `index.npy` will simply be `np.arange(n_points)`.
 
-You can [download](http://aisdatasets.informatik.uni-freiburg.de/openlex3d/predictions.zip) sample predictions in the OpenLex3D format for `kassab2024`, `concept-graphs`, `hovsg`, `openscene`, and `openmask3d`. Extract them to `base_prediction_path`.
+We provide three sets of sample predictions that each follow the OpenLex3D data format:
+- Minimal: To get you started quickly, please download this minimal set containing just the predictions of `kassab2024`: [predictions_minimal.zip](http://aisdatasets.informatik.uni-freiburg.de/openlex3d/predictions_minimal.zip) (0.37 GB)
+- Sparse: The following holds the predictions of all sparse methods (`kassab2024`, `concept-graphs`, `hovsg`, `openmask3d`): [predictions_sparse.zip](http://aisdatasets.informatik.uni-freiburg.de/openlex3d/predictions.zip) (2.0 GB)
+- Dense: Finally, we ship dense methods (`openscene`, `concept-fusion`) separately given their large storage footprint: [predictions_dense.zip](http://aisdatasets.informatik.uni-freiburg.de/openlex3d/predictions_dense.zip) (104.8 GB)
+
+Extract those predictions to `base_prediction_path`.
 
 ## Running the Evaluation Script
 
