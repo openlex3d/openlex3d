@@ -39,7 +39,9 @@ All dataset and evaluation paths are configured in `openlex3d/config/paths/paths
 ### OpenLex3D Ground Truth
 Please download the OpenLex3D ground truth labels using `wget` and extract them to `openlex_gt_path`:
 
-``` wget http://aisdatasets.cs.uni-freiburg.de/openlex3d/gt_openlex3d.zip```
+```
+wget http://aisdatasets.cs.uni-freiburg.de/openlex3d/gt_openlex3d.zip
+```
 
 ### Datasets
 #### Replica
@@ -85,15 +87,21 @@ point_cloud.pcd # RGB point cloud with n_points
 For dense methods, `index.npy` will simply be `np.arange(n_points)`.
 
 We provide three sets of sample predictions that each follow the OpenLex3D data format:
-- **Minimal**: To get you started quickly, please download this minimal set containing just the predictions of `kassab2024`: 
+- **Minimal**: To get you started quickly, please download this minimal set containing just the predictions of `kassab2024` (0.37 GB): 
   
-  ```wget http://aisdatasets.cs.uni-freiburg.de/openlex3d/predictions_minimal.zip``` (0.37 GB)
-- **Sparse**: The following holds the predictions of all sparse methods (`kassab2024`, `concept-graphs`, `hovsg`, `openmask3d`): 
+  ```
+  wget http://aisdatasets.cs.uni-freiburg.de/openlex3d/predictions_minimal.zip
+  ``` 
+- **Sparse**: All sparse methods (`kassab2024`, `concept-graphs`, `hovsg`, `openmask3d`) can be obtained as follows (2.0 GB): 
   
-  ```wget http://aisdatasets.cs.uni-freiburg.de/openlex3d/predictions_sparse.zip```  (2.0 GB)
-- **Dense**: Finally, we ship dense methods (`openscene`, `concept-fusion`) separately given their large storage footprint: 
+  ```
+  wget http://aisdatasets.cs.uni-freiburg.de/openlex3d/predictions_sparse.zip
+  ```  
+- **Dense**: We ship dense methods (`openscene`, `concept-fusion`) separately given their large storage footprint (104.8 GB): 
   
-  ```wget http://aisdatasets.cs.uni-freiburg.de/openlex3d/predictions_dense.zip```  (104.8 GB)
+  ```
+  wget http://aisdatasets.cs.uni-freiburg.de/openlex3d/predictions_dense.zip
+  ```  
 
 Extract those predictions to `base_prediction_path`.
 
