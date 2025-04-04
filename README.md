@@ -58,7 +58,17 @@ python -m semantic.prep.prepare_training_data semantic/configs/prepare_training_
 
 We have pre-compiled all necessary observations and ground truth data following the HM3DSem-Walks routine outlined in [HOV-SG](https://github.com/hovsg/HOV-SG). 
 
-Please download the following and make all walks a subdirectory of the `hm3d_path` (e.g., `hm3d_path/00824/`): [00824](http://aisdatasets.informatik.uni-freiburg.de/openlex3d/hm3d-openlex/00824.zip), [00829](http://aisdatasets.informatik.uni-freiburg.de/openlex3d/hm3d-openlex/00829.zip), [00843](http://aisdatasets.informatik.uni-freiburg.de/openlex3d/hm3d-openlex/00843.zip), [00847](http://aisdatasets.informatik.uni-freiburg.de/openlex3d/hm3d-openlex/00847.zip), [00873](http://aisdatasets.informatik.uni-freiburg.de/openlex3d/hm3d-openlex/00873.zip), [00877](http://aisdatasets.informatik.uni-freiburg.de/openlex3d/hm3d-openlex/00877.zip), [00890](http://aisdatasets.informatik.uni-freiburg.de/openlex3d/hm3d-openlex/00890.zip). 
+Please download the following and make all walks a subdirectory of the `hm3d_path` (e.g., `hm3d_path/00824/`). The set of required scenes are *00824*, *00829*, *00843*, *00847*, *00873*, *00877*, *00890*:
+
+```
+wget http://aisdatasets.informatik.uni-freiburg.de/openlex3d/hm3d-openlex/00824.zip && \
+wget http://aisdatasets.informatik.uni-freiburg.de/openlex3d/hm3d-openlex/00829.zip && \
+wget http://aisdatasets.informatik.uni-freiburg.de/openlex3d/hm3d-openlex/00843.zip && \
+wget http://aisdatasets.informatik.uni-freiburg.de/openlex3d/hm3d-openlex/00847.zip && \
+wget http://aisdatasets.informatik.uni-freiburg.de/openlex3d/hm3d-openlex/00873.zip && \
+wget http://aisdatasets.informatik.uni-freiburg.de/openlex3d/hm3d-openlex/00877.zip && \
+wget http://aisdatasets.informatik.uni-freiburg.de/openlex3d/hm3d-openlex/00890.zip
+```
 
 
 ## Predictions
@@ -73,9 +83,15 @@ point_cloud.pcd # RGB point cloud with n_points
 For dense methods, `index.npy` will simply be `np.arange(n_points)`.
 
 We provide three sets of sample predictions that each follow the OpenLex3D data format:
-- Minimal: To get you started quickly, please download this minimal set containing just the predictions of `kassab2024`: [predictions_minimal.zip](http://aisdatasets.informatik.uni-freiburg.de/openlex3d/predictions_minimal.zip) (0.37 GB)
-- Sparse: The following holds the predictions of all sparse methods (`kassab2024`, `concept-graphs`, `hovsg`, `openmask3d`): [predictions_sparse.zip](http://aisdatasets.informatik.uni-freiburg.de/openlex3d/predictions.zip) (2.0 GB)
-- Dense: Finally, we ship dense methods (`openscene`, `concept-fusion`) separately given their large storage footprint: [predictions_dense.zip](http://aisdatasets.informatik.uni-freiburg.de/openlex3d/predictions_dense.zip) (104.8 GB)
+- **Minimal**: To get you started quickly, please download this minimal set containing just the predictions of `kassab2024`: 
+  
+  ```wget http://aisdatasets.informatik.uni-freiburg.de/openlex3d/predictions_minimal.zip``` (0.37 GB)
+- **Sparse**: The following holds the predictions of all sparse methods (`kassab2024`, `concept-graphs`, `hovsg`, `openmask3d`): 
+  
+  ```wget http://aisdatasets.informatik.uni-freiburg.de/openlex3d/predictions_sparse.zip```  (2.0 GB)
+- **Dense**: Finally, we ship dense methods (`openscene`, `concept-fusion`) separately given their large storage footprint: 
+  
+  ```wget http://aisdatasets.informatik.uni-freiburg.de/openlex3d/predictions_dense.zip```  (104.8 GB)
 
 Extract those predictions to `base_prediction_path`.
 
