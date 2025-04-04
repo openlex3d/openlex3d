@@ -1,0 +1,4 @@
+device: "cuda"
+type: open_clip
+backbone: ViT-H-14
+checkpoint: laion2b_s32b_b79k # options: 'laion2b_s32b_b79k', 'metaclip_fullcc', 'metaclip_altogether', 'dfn5b'

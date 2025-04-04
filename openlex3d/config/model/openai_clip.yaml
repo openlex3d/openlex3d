@@ -1,0 +1,3 @@
+device: "cuda"
+type: openai_clip
+backbone: ViT-L/14@336px

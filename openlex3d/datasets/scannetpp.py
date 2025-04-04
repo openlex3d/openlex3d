@@ -14,7 +14,7 @@ def load_dataset(name: str, scene: str, base_path: str):
     assert gt_path.exists()
 
     # Load cloud
-    data = torch.load(str(gt_path))
+    data = torch.load(str(gt_path), weights_only=False)
 
     # create ground truth pcd
     coords = data["sampled_coords"]

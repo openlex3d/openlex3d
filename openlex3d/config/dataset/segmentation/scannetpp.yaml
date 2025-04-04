@@ -1,0 +1,4 @@
+name: scannetpp
+scene: "0a76e06478"
+path: ${paths.scannetpp_path}
+openlex3d_path: ${paths.openlex_gt_path}

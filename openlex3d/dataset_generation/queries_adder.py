@@ -46,8 +46,6 @@ def build_query_to_obj_mapping(data):
                     query_mapping[level][query] = []
                 query_mapping[level][query].append(obj_id)
 
-    # del query_mapping["level1"]
-
     return query_mapping
 
 
@@ -63,9 +61,15 @@ def process_scene_labels(input_path):
     base_name = Path(input_path).stem
     base_path = Path(input_path).parent
     scene_queries_output_path = base_path / f"{base_name}_w_queries.json"
-    query_mapping_all_output_path = base_path / f"{base_name}_query_to_object_mapping_all.json"
-    query_mapping_l0_output_path = base_path / f"{base_name}_query_to_object_mapping_l0.json"
-    query_mapping_l1_output_path = base_path / f"{base_name}_query_to_object_mapping_l1.json"
+    query_mapping_all_output_path = (
+        base_path / f"{base_name}_query_to_object_mapping_all.json"
+    )
+    query_mapping_l0_output_path = (
+        base_path / f"{base_name}_query_to_object_mapping_l0.json"
+    )
+    query_mapping_l1_output_path = (
+        base_path / f"{base_name}_query_to_object_mapping_l1.json"
+    )
 
     updated_scene_data = add_queries_to_scene(data)
 
@@ -103,11 +107,11 @@ if __name__ == "__main__":
         description="Process scene labels and generate query mappings."
     )
     parser.add_argument(
-        "--openlex_labels_folder",
+        "--openlex_gt_folder",
         required=True,
         type=str,
         help="Path to the input JSON file.",
     )
 
     args = parser.parse_args()
-    process_openlex_labels(args.openlex_labels_folder)
+    process_openlex_labels(args.openlex_gt_folder)

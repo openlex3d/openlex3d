@@ -1,0 +1,6 @@
+replica_path: ???
+scannetpp_path: ???
+hm3d_path: ???
+base_prediction_path: ??? # We recommend saving predictions in in a base_prediction_path/method/dataset/scene hierarchy
+openlex_gt_path: ??? # Path to openlex ground truth and visible point clouds
+output_path: ??? # Where to save openlex evaluation results

@@ -8,6 +8,7 @@ authors = [
     { name = "Sacha Morin", email = "sacha.morin@mila.quebec" },
     { name = "Martin Buechner", email = "buechner@cs.uni-freiburg.de" },
     { name = "Matias Mattamala", email = "matias@robots.ox.ac.uk" },
+    { name = "Kumaraditya Gupta", email = "kumaraditya.gupta@mila.quebec" },
 ]
 license = { text = "MIT" }
 readme = "README.md"
@@ -38,7 +39,6 @@ dependencies = [
     "plyfile",
     "pyspellchecker",
     "colorama",
-    # "git+https://github.com/openai/CLIP.git",
     "seaborn",
 ]
 
@@ -68,5 +68,5 @@ known-first-party = ["openlex3d"]
 split-on-trailing-comma = false
 
 [project.scripts]
-ol3_evaluate = "openlex3d.scripts.evaluate:main"
-ol3_queries_evaluate = "openlex3d.scripts.queries_evaluate:main"
+ol3_evaluate_segmentation = "openlex3d.scripts.evaluate_segmentation:main"
+ol3_evaluate_queries = "openlex3d.scripts.evaluate_queries:main"

@@ -13,7 +13,11 @@ import open3d as o3d
 from openlex3d import get_path
 from openlex3d.core.io import load_all_predictions, load_query_json
 from openlex3d.datasets import load_dataset_with_obj_ids
-from openlex3d.core.metric import compute_ap, compute_ap_averages, compute_query_inverse_rank
+from openlex3d.core.metric import (
+    compute_ap,
+    compute_ap_averages,
+    compute_query_inverse_rank,
+)
 from openlex3d.core.align_masks import get_pred_mask_indices_gt_aligned
 from openlex3d.core.cosine_similarity import compute_normalized_cosine_similarities
 
@@ -53,7 +57,7 @@ def save_query_results_json(cfg, per_scene_results, overall_results, json_output
     json_output_path = Path(json_output_dir) / "results.json"
     with open(json_output_path, "w") as f:
         json.dump(results_dict, f, indent=4)
-    logger.info(f"Saved JSON results to: {json_output_path}")
+    logger.info(f"Saved results in JSON format to: {json_output_path}")
 
 
 # ----------------------------
@@ -107,10 +111,6 @@ def create_gt_instances(all_gt_mask_indices, query_list):
 def create_pred_instances(
     cfg, pred_features, aligned_pred_mask_indices, query_list, model_cfg
 ):
-    # # NOTE: Can be changed later
-    # if cfg.eval.metric == "rank":
-    #     cfg.eval.top_k = pred_features.shape[0]
-
     if cfg.criteria == "clip_threshold":
         pred_instances = create_pred_instances_clip_thresh(
             pred_features,
@@ -315,10 +315,10 @@ def print_matched_pred_ids_for_query(matches, query_id):
 def get_matches_for_scene(cfg, scene_id):
     # Load prediction files
     logger.info(
-        f"Loading predictions for method {cfg.pred.method} on dataset {cfg.dataset.name}, scene {scene_id}"
+        f"Loading predictions for method {cfg.evaluation.algorithm} on dataset {cfg.dataset.name}, scene {scene_id}"
     )
     pred_pcd, pred_mask_indices, pred_features = load_all_predictions(
-        cfg.pred.path, scene_id
+        cfg.evaluation.predictions_path, scene_id
     )
 
     # Load ground truth: mesh and segindices
@@ -327,7 +327,7 @@ def get_matches_for_scene(cfg, scene_id):
 
     # Load queries
     logger.info("Loading queries")
-    query_list = load_query_json(cfg.query, cfg.dataset.name, scene_id)
+    query_list = load_query_json(cfg, scene_id)
 
     # Get all GT mask indices and create GT instances
     logger.info("Creating GT instances")
@@ -343,10 +343,10 @@ def get_matches_for_scene(cfg, scene_id):
     )
 
     logger.info(
-        f"Creating predicted instances with criteria {cfg.eval.criteria} ({cfg.eval.clip_threshold} or {cfg.eval.top_k})"
+        f"Creating predicted instances with criteria {cfg.evaluation.criteria} ({cfg.evaluation.clip_threshold} or {cfg.evaluation.top_k})"
     )
     pred_instances = create_pred_instances(
-        cfg.eval, pred_features, aligned_pred_mask_indices, query_list, cfg.model
+        cfg.evaluation, pred_features, aligned_pred_mask_indices, query_list, cfg.model
     )
 
     # Build the matches dictionary for a single scene
@@ -358,13 +358,12 @@ def get_matches_for_scene(cfg, scene_id):
     logger.info("Saving matches")
     # For visualization
     viz_path = (
-        Path(cfg.output_path)
+        Path(cfg.paths.output_path)
         / "viz"
-        / cfg.query.level
+        / cfg.evaluation.query_level
         / cfg.dataset.name
         / scene_id
-        / cfg.pred.method
-        / f"{cfg.masks.alignment_mode}_{cfg.masks.alignment_threshold}_{cfg.eval.criteria}_{cfg.eval.clip_threshold}_{cfg.eval.top_k}"
+        / cfg.evaluation.algorithm
     )
 
     viz_path.mkdir(parents=True, exist_ok=True)
@@ -384,15 +383,15 @@ def get_matches_for_scene(cfg, scene_id):
 @hydra.main(
     version_base=None,
     config_path=f"{get_path()}/config",
-    config_name="eval_query_config",
+    config_name="eval_query",
 )
 def main(cfg: DictConfig):
     scenes = cfg.dataset.scenes
     all_matches = {}
 
     logger.info(
-        f"Starting evaluation with {cfg.eval.metric} metric "
-        f"for method {cfg.pred.method} on dataset {cfg.dataset.name}"
+        f"Starting evaluation with {cfg.evaluation.metric} metric "
+        f"for method {cfg.evaluation.algorithm} on dataset {cfg.dataset.name}"
     )
 
     # Prepare dictionaries to hold per‐scene metrics you care about
@@ -402,14 +401,14 @@ def main(cfg: DictConfig):
         matches, _ = get_matches_for_scene(cfg, scene_id)
         all_matches.update(matches)
 
-        if cfg.eval.metric == "rank":
+        if cfg.evaluation.metric == "rank":
             avg_inverse_rank, scene_query_ranks = compute_query_inverse_rank(
-                matches, cfg.eval.iou_threshold
+                matches, cfg.evaluation.iou_threshold
             )
             logger.info(f"Scene {scene_id} - Average inverse rank: {avg_inverse_rank}")
             per_scene_results[scene_id] = {"avg_inverse_rank": avg_inverse_rank}
 
-        elif cfg.eval.metric == "ap":
+        elif cfg.evaluation.metric == "ap":
             ap_score, metric_dict = compute_ap(matches)
             avg_results = compute_ap_averages(ap_score)
             logger.info(f"Scene {scene_id} - Average Precision: {avg_results}")
@@ -418,21 +417,20 @@ def main(cfg: DictConfig):
     # Compute overall (all scenes)
     overall_results = {}
 
-    if cfg.eval.metric == "rank":
+    if cfg.evaluation.metric == "rank":
         avg_inverse_rank, scene_query_ranks = compute_query_inverse_rank(
-            all_matches, cfg.eval.iou_threshold
+            all_matches, cfg.evaluation.iou_threshold
         )
-        logger.info(f"IoU used: {cfg.eval.iou_threshold}")
+        logger.info(f"IoU used: {cfg.evaluation.iou_threshold}")
         logger.info(f"Overall average inverse rank: {avg_inverse_rank}")
 
         # Save the pickled ranks (if needed)
         ranks_output_path = (
-            Path(cfg.output_path)
+            Path(cfg.paths.output_path)
             / "rank_metric"
-            / cfg.query.level
+            / cfg.evaluation.query_level
             / cfg.dataset.name
-            / cfg.pred.method
-            / f"{cfg.masks.alignment_mode}_{cfg.masks.alignment_threshold}_{cfg.eval.top_k}_{cfg.eval.iou_threshold}"
+            / cfg.evaluation.algorithm
         )
         ranks_output_path.mkdir(parents=True, exist_ok=True)
         pickle.dump(
@@ -441,19 +439,18 @@ def main(cfg: DictConfig):
 
         overall_results["avg_inverse_rank"] = avg_inverse_rank
 
-    elif cfg.eval.metric == "ap":
+    elif cfg.evaluation.metric == "ap":
         ap_score, metric_dict = compute_ap(all_matches)
         avg_results = compute_ap_averages(ap_score)
         logger.info(f"Overall Average Precision: {avg_results}")
 
         # Save the pickled metrics (if needed)
         ap_output_path = (
-            Path(cfg.output_path)
+            Path(cfg.paths.output_path)
             / "ap_metric"
-            / cfg.query.level
+            / cfg.evaluation.query_level
             / cfg.dataset.name
-            / cfg.pred.method
-            / f"{cfg.masks.alignment_mode}_{cfg.masks.alignment_threshold}_{cfg.eval.criteria}_{cfg.eval.clip_threshold}_{cfg.eval.top_k}"
+            / cfg.evaluation.algorithm
         )
         ap_output_path.mkdir(parents=True, exist_ok=True)
         pickle.dump(metric_dict, open(ap_output_path / "ap_metrics.pkl", "wb"))

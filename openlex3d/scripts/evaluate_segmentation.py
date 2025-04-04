@@ -3,17 +3,18 @@
 # PYTHON_ARGCOMPLETE_OK
 
 import logging
-import os
 
 import hydra
 from omegaconf import DictConfig
+from pathlib import Path
 
 import openlex3d.core.metric as metric  # noqa
 from openlex3d import get_path
-from openlex3d.core.evaluation import (compute_feature_to_prompt_similarity,
-                                       get_label_from_logits)
-from openlex3d.core.io import (load_predicted_features, load_prompt_list,
-                               save_results)
+from openlex3d.core.evaluation import (
+    compute_feature_to_prompt_similarity,
+    get_label_from_logits,
+)
+from openlex3d.core.io import load_predicted_features, load_prompt_list, save_results
 from openlex3d.datasets import load_dataset
 from openlex3d.models import load_model
 
@@ -36,10 +37,7 @@ def main(config: DictConfig):
 
         # Load predicted features
         pred_cloud, pred_feats = load_predicted_features(
-            os.path.join(config.evaluation.predictions_path, 
-                         config.dataset.name, 
-                         config.evaluation.algorithm, 
-                         config.dataset.scene),
+            config.evaluation.predictions_path,
             config.evaluation.voxel_downsampling_size,
         )
 
@@ -54,38 +52,48 @@ def main(config: DictConfig):
         )
 
         # Get predicted label from logits
-        pred_labels = get_label_from_logits(logits, prompt_list, method="topn", topn=config.evaluation.topn)
+        pred_labels = get_label_from_logits(
+            logits, prompt_list, method="topn", topn=config.evaluation.topn
+        )
 
         results = {}
+        pred_categories = None
+        point_labels = None
+        point_categories = None
         # Compute metric (intersection over union)
-        iou_results, pred_categories, point_labels, point_categories = (
-            metric.intersection_over_union_topn(
-                pred_cloud=pred_cloud,
-                pred_labels=pred_labels,
-                gt_cloud=gt_cloud,
-                gt_ids=gt_ids,
-                gt_labels_handler=openlex3d_gt_handler,
-                excluded_labels=config.evaluation.excluded_labels,
-            )
-        )
-        results[f"iou{config.evaluation.topn}"] = iou_results
-
-        if config.evaluation.set_ranking:
-            set_ranking_results = metric.set_based_ranking(pred_cloud=pred_cloud,
+        if config.evaluation.iou:
+            iou_results, pred_categories, point_labels, point_categories = (
+                metric.intersection_over_union_topn(
+                    pred_cloud=pred_cloud,
+                    pred_labels=pred_labels,
                     gt_cloud=gt_cloud,
                     gt_ids=gt_ids,
                     gt_labels_handler=openlex3d_gt_handler,
                     excluded_labels=config.evaluation.excluded_labels,
-                    logits=logits,
-                    prompt_list=prompt_list,)
+                )
+            )
+            results["iou"] = iou_results
+
+        if config.evaluation.set_ranking:
+            set_ranking_results = metric.set_based_ranking(
+                pred_cloud=pred_cloud,
+                gt_cloud=gt_cloud,
+                gt_ids=gt_ids,
+                gt_labels_handler=openlex3d_gt_handler,
+                excluded_labels=config.evaluation.excluded_labels,
+                logits=logits,
+                prompt_list=prompt_list,
+            )
             results["ranking"] = set_ranking_results
-        
+
         # Export predicted clouds
         save_results(
             output_path=config.evaluation.output_path,
             dataset=config.dataset.name,
             scene=config.dataset.scene,
-            algorithm=config.evaluation.algorithm,
+            algorithm=Path(
+                config.evaluation.algorithm, f"top_{config.evaluation.topn}"
+            ),
             reference_cloud=gt_cloud,
             pred_categories=pred_categories,
             results=results,

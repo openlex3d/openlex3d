@@ -1,6 +1,6 @@
 import itertools
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Union
 
 import numpy as np
 import open3d as o3d
@@ -95,8 +95,8 @@ def save_results(
     dataset: str,
     scene: str,
     algorithm: str,
-    point_labels: np.ndarray,
-    point_categories: np.ndarray,
+    point_labels: Union[np.ndarray, None],
+    point_categories: Union[np.ndarray, None],
     reference_cloud: o3d.t.geometry.PointCloud,
     pred_categories=List[str],
     results=Dict[str, Any],
@@ -109,39 +109,40 @@ def save_results(
     # Prepare outputh path
     output_cloud = Path(output_path, "point_cloud.pcd")
 
-    # Map categories to colors
-    colors = np.array(
-        [get_color(category) for category in pred_categories], dtype=float
-    )
+    if pred_categories:
+        # Map categories to colors
+        colors = np.array(
+            [get_color(category) for category in pred_categories], dtype=float
+        )
 
-    # Reconstruct output cloud
-    cloud = reference_cloud.clone()
-    cloud.point.colors = o3d.core.Tensor(colors)
+        # Reconstruct output cloud
+        cloud = reference_cloud.clone()
+        cloud.point.colors = o3d.core.Tensor(colors)
 
-    assert cloud.point.positions.shape[0] > 0
-    assert cloud.point.colors.shape[0] > 0
+        assert cloud.point.positions.shape[0] > 0
+        assert cloud.point.colors.shape[0] > 0
 
-    # Save
-    o3d.io.write_point_cloud(str(output_cloud), cloud.to_legacy())
-
-    # o3d.visualization.draw_geometries([cloud.to_legacy()])
+        # Save
+        o3d.io.write_point_cloud(str(output_cloud), cloud.to_legacy())
 
     # Prepare results yaml file
     output_results = Path(output_path, "results.yaml")
 
     with open(str(output_results), "w") as file:
         yaml.dump(results, file, default_flow_style=False)
-        
+
     # Save predicted labels for each point
-    output_labels = Path(output_path, "point_labels.npy")
-    np.save(output_labels, point_labels)
+    if point_labels is not None:
+        output_labels = Path(output_path, "point_labels.npy")
+        np.save(output_labels, point_labels)
 
     # Save predicted category for each label of each point
-    output_categories = Path(output_path, "point_categories.npy")
-    np.save(output_categories, point_categories)
+    if point_categories is not None:
+        output_categories = Path(output_path, "point_categories.npy")
+        np.save(output_categories, point_categories)
 
 
-def load_query_json(cfg, dataset, scene):
+def load_query_json(cfg, scene):
     """
     Loads the query JSON file.
     Expected format:
@@ -151,8 +152,9 @@ def load_query_json(cfg, dataset, scene):
     }
     We'll flatten this to a list of dicts.
     """
-    jsons_path = cfg.path
-    level = cfg.level
+    jsons_path = cfg.paths.openlex_gt_path
+    level = cfg.evaluation.query_level
+    dataset = cfg.dataset.name
     query_json_file = str(
         Path(jsons_path)
         / dataset
@@ -176,7 +178,7 @@ def load_query_json(cfg, dataset, scene):
 
 def load_all_predictions(predictions_path, scene_name):
     pcd_path = Path(predictions_path) / scene_name / "point_cloud.pcd"
-    if not pcd_path.exists(): # hovsg edit
+    if not pcd_path.exists():  # hovsg edit
         pcd_path = Path(predictions_path) / scene_name / "input.ply"
 
     masks_path = Path(predictions_path) / scene_name / "index.npy"
@@ -195,5 +197,3 @@ def load_all_predictions(predictions_path, scene_name):
     features = np.load(features_path)
 
     return pcd_points, masks, features
-
-

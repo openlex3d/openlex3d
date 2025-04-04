@@ -1,4 +1,4 @@
-name: replica
+name: "replica"
 scenes:
   [
     "room0",
@@ -10,4 +10,4 @@ scenes:
     "office3",
     "office4",
   ]
-path: /path/to/Replica_full # required
+path: ${paths.replica_path}

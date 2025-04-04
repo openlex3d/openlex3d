@@ -10,4 +10,4 @@ scenes:
     "8a35ef3cfe",
     "4c5c60fa76",
   ]
-path: /path/to/scannetpp_openlex_v2 # required
+path: ${paths.scannetpp_path}
