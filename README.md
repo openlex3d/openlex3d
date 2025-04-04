@@ -63,13 +63,13 @@ We have pre-compiled all necessary observations and ground truth data following 
 Please download the following and make all walks a subdirectory of the `hm3d_path` (e.g., `hm3d_path/00824/`). The set of required scenes are *00824*, *00829*, *00843*, *00847*, *00873*, *00877*, *00890*:
 
 ```
-wget http://aisdatasets.cs.uni-freiburg.de/openlex3d/hm3d-openlex/00824.zip && \
-wget http://aisdatasets.cs.uni-freiburg.de/openlex3d/hm3d-openlex/00829.zip && \
-wget http://aisdatasets.cs.uni-freiburg.de/openlex3d/hm3d-openlex/00843.zip && \
-wget http://aisdatasets.cs.uni-freiburg.de/openlex3d/hm3d-openlex/00847.zip && \
-wget http://aisdatasets.cs.uni-freiburg.de/openlex3d/hm3d-openlex/00873.zip && \
-wget http://aisdatasets.cs.uni-freiburg.de/openlex3d/hm3d-openlex/00877.zip && \
-wget http://aisdatasets.cs.uni-freiburg.de/openlex3d/hm3d-openlex/00890.zip
+wget http://aisdatasets.cs.uni-freiburg.de/openlex3d/hm3d/00824.zip && \
+wget http://aisdatasets.cs.uni-freiburg.de/openlex3d/hm3d/00829.zip && \
+wget http://aisdatasets.cs.uni-freiburg.de/openlex3d/hm3d/00843.zip && \
+wget http://aisdatasets.cs.uni-freiburg.de/openlex3d/hm3d/00847.zip && \
+wget http://aisdatasets.cs.uni-freiburg.de/openlex3d/hm3d/00873.zip && \
+wget http://aisdatasets.cs.uni-freiburg.de/openlex3d/hm3d/00877.zip && \
+wget http://aisdatasets.cs.uni-freiburg.de/openlex3d/hm3d/00890.zip
 ```
 
 
