@@ -86,6 +86,9 @@ def main(config: DictConfig):
             )
             results["ranking"] = set_ranking_results
 
+        # Log results
+        logger.info(f"Scene Metrics: {results}")
+
         # Export predicted clouds
         save_results(
             output_path=config.evaluation.output_path,
@@ -99,6 +102,12 @@ def main(config: DictConfig):
             results=results,
             point_labels=point_labels,
             point_categories=point_categories,
+        )
+        # log results saved to
+        logger.info(
+            f"Results saved to {config.evaluation.output_path}"
+            f"/{config.evaluation.algorithm}/top_{config.evaluation.topn}"
+            f"/{config.dataset.name}/{config.dataset.scene}"
         )
 
     elif config.evaluation.type == "caption":
