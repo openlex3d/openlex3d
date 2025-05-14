@@ -34,7 +34,7 @@ ID_TO_LABEL = {1: "object"}
 LABEL_TO_ID = {"object": 1}
 
 
-def intersection_over_union(
+def category_frequency(
     pred_cloud: o3d.t.geometry.PointCloud,
     pred_labels: np.ndarray,
     gt_cloud: o3d.t.geometry.PointCloud,
@@ -81,19 +81,19 @@ def intersection_over_union(
         matching_category = gt_labels_handler.match(id=gt_id, query=pred_label)
         pred_categories.append(matching_category)
 
-    # Compute IoU
+    # Compute Freqs
     N = len(pred_categories)
     assert N == gt_cloud.point.positions.shape[0]
 
-    ious = {category: 0.0 for category in get_categories()}
+    freqs = {category: 0.0 for category in get_categories()}
     total_hits = N - pred_categories.count("none")
-    for cat, hits in ious.items():
-        ious[cat] = pred_categories.count(cat) / total_hits
+    for cat, hits in freqs.items():
+        freqs[cat] = pred_categories.count(cat) / total_hits
 
-    return ious, pred_categories  # noqa
+    return freqs, pred_categories  # noqa
 
 
-def intersection_over_union_normalized(
+def category_frequency_normalized(
     pred_cloud: o3d.t.geometry.PointCloud,
     pred_labels: np.ndarray,
     gt_cloud: o3d.t.geometry.PointCloud,
@@ -111,7 +111,7 @@ def intersection_over_union_normalized(
     # Next step aims to find which category the predicted label falls into
     pred_categories = []
 
-    ious = {category: 0 for category in get_categories()}
+    freqs = {category: 0 for category in get_categories()}
 
     unique_ids = set()
 
@@ -141,7 +141,7 @@ def intersection_over_union_normalized(
         # Case 3: Check if there is a valid ground truth
         if distance[0] > GT_DATA_ASSOCIATION_THR:
             pred_categories.append("missing")
-            ious["missing"] += 1 / count
+            freqs["missing"] += 1 / count
             unique_ids.add(gt_id)
             continue
 
@@ -149,19 +149,19 @@ def intersection_over_union_normalized(
         matching_category = gt_labels_handler.match(id=gt_id, query=pred_label)
         pred_categories.append(matching_category)
 
-        ious[matching_category] += 1 / count
+        freqs[matching_category] += 1 / count
         unique_ids.add(gt_id)
 
-    # Compute IoU
+    # Compute Freqs
     num_objects = len(unique_ids)
 
-    for cat, hits in ious.items():
-        ious[cat] = float(ious[cat] / num_objects)
+    for cat, hits in freqs.items():
+        freqs[cat] = float(freqs[cat] / num_objects)
 
-    return ious, pred_categories  # noqa
+    return freqs, pred_categories  # noqa
 
 
-def intersection_over_union_topn(
+def category_frequency_topn(
     pred_cloud: o3d.t.geometry.PointCloud,
     pred_labels: np.ndarray,
     gt_cloud: o3d.t.geometry.PointCloud,
@@ -181,7 +181,7 @@ def intersection_over_union_topn(
     point_labels = []  # Top n labels
     point_label_categories = []  # Top n label categories
 
-    ious = {category: 0 for category in get_categories()}
+    freqs = {category: 0 for category in get_categories()}
 
     unique_ids = set()
 
@@ -221,7 +221,7 @@ def intersection_over_union_topn(
         if distance[0] > GT_DATA_ASSOCIATION_THR:
             pred_categories.append("missing")
             point_label_categories.append(["missing"] * len(pred_label))
-            ious["missing"] += 1 / count
+            freqs["missing"] += 1 / count
             unique_ids.add(gt_id)
             continue
 
@@ -236,50 +236,57 @@ def intersection_over_union_topn(
         for category in get_categories():
             if category in matching_categories:
                 pred_categories.append(category)
-                ious[category] += 1 / count
+                freqs[category] += 1 / count
                 break
 
         # print(category, pred_label, matching_categories, gt_id)
 
         unique_ids.add(gt_id)
 
-    # Compute IoU
+    # Compute Freqs
     num_objects = len(unique_ids)
     # print(num_objects)
 
-    for cat, hits in ious.items():
-        ious[cat] = float(ious[cat] / num_objects)
+    for cat, hits in freqs.items():
+        freqs[cat] = float(freqs[cat] / num_objects)
 
     return (
-        ious,
+        freqs,
         pred_categories,
         np.array(point_labels),
         np.array(point_label_categories),
     )  # noqa
 
 
-def compute_set_ranking_score(ranks: List[int], set_rank_l=3, set_rank_r=5, max_label_idx=11):
+def compute_set_ranking_score(
+    ranks: List[int], set_rank_l=3, set_rank_r=5, max_label_idx=11
+):
     scores = []
     left_scores, right_scores = [], []
     for rank in ranks:
-        left_box_constr = 1 + min((0, (rank - set_rank_l)/(set_rank_l + EPS)))
-        right_box_constr = 1-max((0, (rank - set_rank_r)/(max_label_idx - set_rank_r)))
+        left_box_constr = 1 + min((0, (rank - set_rank_l) / (set_rank_l + EPS)))
+        right_box_constr = 1 - max(
+            (0, (rank - set_rank_r) / (max_label_idx - set_rank_r))
+        )
         scores.append(min(left_box_constr, right_box_constr))
         left_scores.append(left_box_constr)
         right_scores.append(right_box_constr)
     return scores, left_scores, right_scores
 
 
-def set_based_ranking(pred_cloud: o3d.t.geometry.PointCloud,
-                        gt_cloud: o3d.t.geometry.PointCloud,
-                        gt_ids: np.ndarray,
-                        gt_labels_handler: CategoriesHandler,
-                        excluded_labels: List[str] = [],
-                        logits: np.ndarray = None,
-                        prompt_list: List[str] = None):
-    
-    assert logits is not None, "Logits must be provided for set-based ranking" 
-    assert prompt_list is not None and len(prompt_list) > 0, "Prompt list must be provided for set-based ranking"
+def set_based_ranking(
+    pred_cloud: o3d.t.geometry.PointCloud,
+    gt_cloud: o3d.t.geometry.PointCloud,
+    gt_ids: np.ndarray,
+    gt_labels_handler: CategoriesHandler,
+    excluded_labels: List[str] = [],
+    logits: np.ndarray = None,
+    prompt_list: List[str] = None,
+):
+    assert logits is not None, "Logits must be provided for set-based ranking"
+    assert (
+        prompt_list is not None and len(prompt_list) > 0
+    ), "Prompt list must be provided for set-based ranking"
     ranked_labels = torch.argsort(torch.from_numpy(logits), dim=-1, descending=True)
 
     # Find closest match between prediction and ground truth
@@ -295,12 +302,13 @@ def set_based_ranking(pred_cloud: o3d.t.geometry.PointCloud,
         defaultdict(list),
         defaultdict(list),
     )
-    
-    syn_undershooting_scores, sec_overshooting_scores, sec_undershooting_scores = {}, {}, {}
-    syn_inlier_rate, sec_inlier_rate = {}, {}
 
-                
-            
+    syn_undershooting_scores, sec_overshooting_scores, sec_undershooting_scores = (
+        {},
+        {},
+        {},
+    )
+    syn_inlier_rate, sec_inlier_rate = {}, {}
 
     stripped_prompt_list = [label.replace(" ", "") for label in prompt_list]
 
@@ -314,7 +322,11 @@ def set_based_ranking(pred_cloud: o3d.t.geometry.PointCloud,
 
         # obtain synonym ranks
         synonyms = gt_labels_handler._get_labels_from_category(gt_id, "synonyms")
-        synonym_idcs = [stripped_prompt_list.index(synonym) for synonym in synonyms if synonym in stripped_prompt_list]
+        synonym_idcs = [
+            stripped_prompt_list.index(synonym)
+            for synonym in synonyms
+            if synonym in stripped_prompt_list
+        ]
 
         consider_synonyms, consider_secondary = False, False
 
@@ -334,7 +346,9 @@ def set_based_ranking(pred_cloud: o3d.t.geometry.PointCloud,
         # obtain depiction-ranks
         depiction = gt_labels_handler._get_labels_from_category(gt_id, "depictions")
         depiction_idcs = [
-            stripped_prompt_list.index(depiction_label) for depiction_label in depiction if depiction_label in stripped_prompt_list
+            stripped_prompt_list.index(depiction_label)
+            for depiction_label in depiction
+            if depiction_label in stripped_prompt_list
         ]
 
         depiction_ranks = []
@@ -356,7 +370,9 @@ def set_based_ranking(pred_cloud: o3d.t.geometry.PointCloud,
         # obtain vis-sim ranks
         vis_sim = gt_labels_handler._get_labels_from_category(gt_id, "vis_sim")
         vis_sim_idcs = [
-            stripped_prompt_list.index(vis_sim_label) for vis_sim_label in vis_sim if vis_sim_label in stripped_prompt_list
+            stripped_prompt_list.index(vis_sim_label)
+            for vis_sim_label in vis_sim
+            if vis_sim_label in stripped_prompt_list
         ]
         vis_sim_ranks = []
         if len(vis_sim_idcs) > 0:
@@ -389,23 +405,39 @@ def set_based_ranking(pred_cloud: o3d.t.geometry.PointCloud,
             consider_secondary = True
         else:
             secondary_rank_l, secondary_rank_r = None, None
-            consider_secondary = False            
+            consider_secondary = False
 
         secondary_ranks = depiction_ranks + vis_sim_ranks
-    
+
         L = len(stripped_prompt_list) - 1
         if consider_synonyms:
-            indiv_syn_scores, indiv_syn_scores_left, indiv_syn_scores_right = compute_set_ranking_score(syn_ranks, syn_rank_l, syn_rank_r, L)
-            syn_inlier_rate[gt_id] = sum([1 for score in indiv_syn_scores if score == 1]) / len(indiv_syn_scores)
-            syn_undershooting_scores[gt_id] = [score for score in indiv_syn_scores_right if score < 1]
+            indiv_syn_scores, indiv_syn_scores_left, indiv_syn_scores_right = (
+                compute_set_ranking_score(syn_ranks, syn_rank_l, syn_rank_r, L)
+            )
+            syn_inlier_rate[gt_id] = sum(
+                [1 for score in indiv_syn_scores if score == 1]
+            ) / len(indiv_syn_scores)
+            syn_undershooting_scores[gt_id] = [
+                score for score in indiv_syn_scores_right if score < 1
+            ]
             synonym_scores[gt_id].extend(indiv_syn_scores)
             overall_scores[gt_id].extend(indiv_syn_scores)
         if consider_secondary:
-            indiv_sec_scores, indiv_sec_scores_left, indiv_sec_scores_right = compute_set_ranking_score(secondary_ranks, secondary_rank_l, secondary_rank_r, L)
-            sec_inlier_rate[gt_id] = sum([1 for score in indiv_sec_scores if score == 1]) / len(indiv_sec_scores)
+            indiv_sec_scores, indiv_sec_scores_left, indiv_sec_scores_right = (
+                compute_set_ranking_score(
+                    secondary_ranks, secondary_rank_l, secondary_rank_r, L
+                )
+            )
+            sec_inlier_rate[gt_id] = sum(
+                [1 for score in indiv_sec_scores if score == 1]
+            ) / len(indiv_sec_scores)
             # evaluate left box constraint errors
-            sec_overshooting_scores[gt_id] = [score for score in indiv_sec_scores_left if score < 1]
-            sec_undershooting_scores[gt_id] = [score for score in indiv_sec_scores_right if score < 1]
+            sec_overshooting_scores[gt_id] = [
+                score for score in indiv_sec_scores_left if score < 1
+            ]
+            sec_undershooting_scores[gt_id] = [
+                score for score in indiv_sec_scores_right if score < 1
+            ]
             sec_scores[gt_id].extend(indiv_sec_scores)
             overall_scores[gt_id].extend(indiv_sec_scores)
 
@@ -414,19 +446,31 @@ def set_based_ranking(pred_cloud: o3d.t.geometry.PointCloud,
             overall_scores[gt_id] = float(np.nanmean(overall_scores[gt_id]))
         if gt_id in list(synonym_scores.keys()):
             synonym_scores[gt_id] = float(np.nanmean(synonym_scores[gt_id]))
-            syn_undershooting_scores[gt_id] = float(np.nanmean(syn_undershooting_scores[gt_id]))
+            syn_undershooting_scores[gt_id] = float(
+                np.nanmean(syn_undershooting_scores[gt_id])
+            )
         if gt_id in list(sec_scores.keys()):
             sec_scores[gt_id] = float(np.nanmean(sec_scores[gt_id]))
-            sec_overshooting_scores[gt_id] = float(np.nanmean(sec_overshooting_scores[gt_id]))
-            sec_undershooting_scores[gt_id] = float(np.nanmean(sec_undershooting_scores[gt_id]))
+            sec_overshooting_scores[gt_id] = float(
+                np.nanmean(sec_overshooting_scores[gt_id])
+            )
+            sec_undershooting_scores[gt_id] = float(
+                np.nanmean(sec_undershooting_scores[gt_id])
+            )
 
     results = {
         "overall": float(np.nanmean(list(overall_scores.values()))),
         "synonyms": float(np.nanmean(list(synonym_scores.values()))),
         "secondary": float(np.nanmean(list(sec_scores.values()))),
-        "synonym_undershooting": float(np.nanmean(list(syn_undershooting_scores.values()))),
-        "secondary_overshooting": float(np.nanmean(list(sec_overshooting_scores.values()))),
-        "secondary_undershooting": float(np.nanmean(list(sec_undershooting_scores.values()))),
+        "synonym_undershooting": float(
+            np.nanmean(list(syn_undershooting_scores.values()))
+        ),
+        "secondary_overshooting": float(
+            np.nanmean(list(sec_overshooting_scores.values()))
+        ),
+        "secondary_undershooting": float(
+            np.nanmean(list(sec_undershooting_scores.values()))
+        ),
         "synonym_inlier_rate": float(np.nanmean(list(syn_inlier_rate.values()))),
         "secondary_inlier_rate": float(np.nanmean(list(sec_inlier_rate.values()))),
     }

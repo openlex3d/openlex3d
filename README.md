@@ -107,8 +107,8 @@ Extract those predictions to `base_prediction_path`.
 
 ## Running the Evaluation Script
 
-### Segmentation IoU
-To compute the top1 IoU metric for a method called `kassab2024` on the `office0` scene of the Replica dataset using a GPU, you can use
+### Segmentation Top-N Frequency
+To compute the top1 Frequency metric for a method called `kassab2024` on the `office0` scene of the Replica dataset using a GPU, you can use
 ```sh
 python openlex3d/scripts/evaluate_segmentation.py -cp <absolute to the openlex3d/config folder> -cn eval_segmentation evaluation.algorithm=kassab2024 dataset=segmentation/replica dataset.scene=office0 evaluation.topn=1 model.device=cuda:0
 ```
@@ -152,7 +152,7 @@ This will save two CSV files with the overall and per-scene metrics to `output_p
 
 ## Visualizer
 ### Segmentation
-The `visualize_results.py` will visualize category predictions using open3d. Assuming we ran the command from the Segmentation IoU section, you can use
+The `visualize_results.py` will visualize category predictions using open3d. Assuming we ran the command from the Segmentation Top-N Frequency section, you can use
 ```sh
 python openlex3d/visualization/visualize_results.py output_path/kassab2024/top_1/replica/office0
 ```
