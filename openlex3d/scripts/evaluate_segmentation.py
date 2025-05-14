@@ -61,9 +61,9 @@ def main(config: DictConfig):
         point_labels = None
         point_categories = None
         # Compute metric (intersection over union)
-        if config.evaluation.iou:
-            iou_results, pred_categories, point_labels, point_categories = (
-                metric.intersection_over_union_topn(
+        if config.evaluation.freq:
+            freq_results, pred_categories, point_labels, point_categories = (
+                metric.category_frequency_topn(
                     pred_cloud=pred_cloud,
                     pred_labels=pred_labels,
                     gt_cloud=gt_cloud,
@@ -72,7 +72,7 @@ def main(config: DictConfig):
                     excluded_labels=config.evaluation.excluded_labels,
                 )
             )
-            results["iou"] = iou_results
+            results["freq"] = freq_results
 
         if config.evaluation.set_ranking:
             set_ranking_results = metric.set_based_ranking(
